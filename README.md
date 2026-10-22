@@ -10,7 +10,7 @@ Both clients support Brazilian Portuguese (`pt-BR`) and US English (`en-US`). Th
 
 ## SDD and repository map
 
-Start with [`specs/000-foundation/spec.md`](specs/000-foundation/spec.md). New behavior should be specified and reviewed before implementation. See [`AGENTS.md`](AGENTS.md) for the repository workflow and boundaries.
+Start with [`specs/000-foundation/spec.md`](specs/000-foundation/spec.md) for the product contract. The first buildable slice is specified in [`specs/001-web-demo-ordering/spec.md`](specs/001-web-demo-ordering/spec.md). New behavior should be specified and reviewed before implementation. See [`AGENTS.md`](AGENTS.md) for the repository workflow and boundaries.
 
 | Path | Responsibility |
 | --- | --- |
@@ -25,4 +25,4 @@ These directories are intentionally empty until an accepted spec calls for imple
 
 ## Current status
 
-Foundation documentation and repository boundaries are established. No runnable application exists yet, so there are no build or test commands at this stage. Add the appropriate checks when the first implementation spec introduces runnable code.
+The foundation and first web ordering slice are specified. No runnable application exists yet, so there are no build or test commands at this stage. Add the appropriate checks when implementation begins.
