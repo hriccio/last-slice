@@ -959,6 +959,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String? error;
 
   @override
+  void initState() {
+    super.initState();
+    final fields = <String, TextEditingController>{
+      'name': name,
+      'phone': phone,
+      'street': street,
+      'number': number,
+      'neighborhood': neighborhood,
+      'city': city,
+      'state': region,
+      'complement': complement,
+      'reference': reference,
+    };
+    for (final entry in fields.entries) {
+      entry.value.text = widget.state.checkoutFields[entry.key] ?? '';
+      entry.value.addListener(() {
+        widget.state.saveCheckoutField(entry.key, entry.value.text);
+      });
+    }
+  }
+
+  @override
   void dispose() {
     for (final controller in [name, phone, street, number, neighborhood, city, region, complement, reference]) {
       controller.dispose();

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -14,19 +15,26 @@ class OrderState extends ChangeNotifier {
   MenuCatalog? menu;
   PriceQuote? cartQuote;
   final List<CartLine> cart = [];
+  final Map<String, String> checkoutFields = {};
   bool menuLoading = true;
   bool quoteLoading = false;
   bool submitting = false;
   String? menuError;
   String? quoteError;
   String? _idempotencyKey;
+  String? _idempotencyFingerprint;
   int _quoteRevision = 0;
 
   int get itemCount => cart.fold(0, (total, line) => total + line.quantity);
 
+  void saveCheckoutField(String field, String value) {
+    checkoutFields[field] = value;
+  }
+
   Future<void> loadMenu() async {
     menuLoading = true;
     menuError = null;
+    menu = null;
     notifyListeners();
     try {
       menu = MenuCatalog.fromJson(await api.get('/menu?locale=$locale'));
@@ -112,6 +120,7 @@ class OrderState extends ChangeNotifier {
     cartQuote = quote;
     quoteError = null;
     _idempotencyKey = null;
+    _idempotencyFingerprint = null;
     notifyListeners();
     return true;
   }
@@ -125,6 +134,7 @@ class OrderState extends ChangeNotifier {
       cart[index] = cart[index].copyWith(quantity: min(10, quantity));
     }
     _idempotencyKey = null;
+    _idempotencyFingerprint = null;
     notifyListeners();
     await refreshQuote();
   }
@@ -136,19 +146,27 @@ class OrderState extends ChangeNotifier {
   }) async {
     submitting = true;
     notifyListeners();
-    _idempotencyKey ??= _newIdempotencyKey();
+    final payload = {
+      'locale': locale,
+      'fulfillment': fulfillment,
+      'customer': {'name': name, 'phone': phone},
+      if (fulfillment == 'delivery') 'address': address,
+      'lines': cart.map((line) => line.toJson()).toList(),
+    };
+    final fingerprint = jsonEncode(payload);
+    if (_idempotencyKey == null || _idempotencyFingerprint != fingerprint) {
+      _idempotencyKey = _newIdempotencyKey();
+      _idempotencyFingerprint = fingerprint;
+    }
     try {
       final order = await api.post('/orders', {
+        ...payload,
         'idempotencyKey': _idempotencyKey,
-        'locale': locale,
-        'fulfillment': fulfillment,
-        'customer': {'name': name, 'phone': phone},
-        if (fulfillment == 'delivery') 'address': address,
-        'lines': cart.map((line) => line.toJson()).toList(),
       });
       cart.clear();
       cartQuote = null;
       _idempotencyKey = null;
+      _idempotencyFingerprint = null;
       return order;
     } finally {
       submitting = false;
