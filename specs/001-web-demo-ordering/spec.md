@@ -24,7 +24,22 @@ A customer can place and track a clearly simulated pizzeria order on the respons
 
 ## Visual direction
 
-Use the visual style the user selected in the initial ChatGPT conversation as the reference for the website. Preserve its overall palette, typography, image treatment, spacing, and character; make it responsive for this ordering flow. Do not replace it with an unrelated generic pizzeria theme. The referenced visual itself is not embedded in this repository, so implementation must use that conversation reference or a screenshot supplied with the implementation task.
+Treat the attached images as visual references, not as literal screens or copy instructions:
+
+- [Customer mobile catalog and customization](references/customer-mobile-catalog-and-customization.png) and [customer mobile browse and cart](references/customer-mobile-browse-and-cart.png) show the intended customer-app direction.
+- [Customer web ordering and customization](references/customer-web-ordering-and-customization.png) is the primary layout reference for the first web slice.
+- [Pizzeria food photography](references/pizzeria-food-photography.png) shows the warm, close-up food imagery and rustic serving context.
+- [Kitchen order board](references/kitchen-order-board-future-reference.png) is a reference for a later restaurant operations view. It is outside this customer-ordering slice.
+
+Carry these visual traits into a responsive website:
+
+- Near-black and charcoal backgrounds, layered dark-gray cards, white primary text, and muted gray secondary text.
+- A vivid warm orange accent for primary actions, selected options, prices, and small highlights. Keep status colors semantic and restrained.
+- Large appetizing pizza photography with warm natural light and close crops. Use image-led menu cards and a prominent product image on customization; avoid generic clip art.
+- Rounded cards and controls, clear spacing, and concise typography. Keep the menu scannable and customization choices visibly grouped.
+- Use direct category/search and menu browsing, a clear customization panel, a cart summary, and a prominent add-to-cart/checkout action. On narrow screens, keep the next action and current total easy to find without obscuring content.
+
+Adapt the references to The Last Slice's Brazilian menu, BRL prices, and `pt-BR`/`en-US` copy. Do not copy the Dodo Pizza identity, other visible brand names, prices, promotional claims, ratings, profile/location details, or unrelated categories from the images. The kitchen order board may inform a later operations spec but does not add staff tools to this slice.
 
 ## Customer journey
 
