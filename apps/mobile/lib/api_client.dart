@@ -1,6 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
 
+import 'package:http/http.dart' as http;
+
+import 'api_origin.dart' as platform;
 import 'models.dart';
 
 class ApiException implements Exception {
@@ -14,32 +16,30 @@ class ApiException implements Exception {
 }
 
 class ApiClient {
-  ApiClient() : _client = HttpClient();
+  ApiClient() : _client = http.Client();
 
-  final HttpClient _client;
+  final http.Client _client;
 
   static const _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
 
-  String get baseUrl {
-    if (_configuredBaseUrl.isNotEmpty) return _configuredBaseUrl;
-    return Platform.isAndroid ? 'http://10.0.2.2:3001' : 'http://localhost:3001';
-  }
+  String get baseUrl => (_configuredBaseUrl.isNotEmpty
+          ? _configuredBaseUrl
+          : platform.defaultApiOrigin)
+      .replaceFirst(RegExp(r'/+$'), '');
 
-  Future<Json> get(String path) async {
-    final request = await _client.getUrl(Uri.parse('$baseUrl$path'));
-    return _read(await request.close());
-  }
+  Future<Json> get(String path) async =>
+      _read(await _client.get(Uri.parse('$baseUrl$path')));
 
-  Future<Json> post(String path, Json payload) async {
-    final request = await _client.postUrl(Uri.parse('$baseUrl$path'));
-    request.headers.contentType = ContentType.json;
-    request.write(jsonEncode(payload));
-    return _read(await request.close());
-  }
+  Future<Json> post(String path, Json payload) async => _read(
+        await _client.post(
+          Uri.parse('$baseUrl$path'),
+          headers: const {'content-type': 'application/json'},
+          body: jsonEncode(payload),
+        ),
+      );
 
-  Future<Json> _read(HttpClientResponse response) async {
-    final body = await utf8.decoder.bind(response).join();
-    final decoded = body.isEmpty ? <String, dynamic>{} : jsonDecode(body);
+  Json _read(http.Response response) {
+    final decoded = response.body.isEmpty ? <String, dynamic>{} : jsonDecode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final error = decoded is Map ? decoded['error'] : null;
       throw ApiException(
@@ -53,5 +53,5 @@ class ApiClient {
     return decoded;
   }
 
-  void close() => _client.close(force: true);
+  void close() => _client.close();
 }

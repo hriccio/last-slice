@@ -19,16 +19,30 @@ This starts the API at `http://localhost:3001` and web app at `http://localhost:
 npm run build
 ```
 
-## Flutter mobile app
+## Flutter app and PWA
 
-The Flutter app source lives in `apps/mobile/` and uses the same API as the web demo. It needs a Flutter SDK with Dart 3.4 or newer and Android or iOS platform tooling. Native platform runner files are not checked in yet; generate the Android and iOS runners with Flutter before launching the app.
+`apps/mobile/` is a separate Flutter client alongside the React website in `apps/web/`. The Flutter client targets the browser as an installable PWA and shares its Dart UI/API client with future Android and iOS builds. It needs Flutter with Dart 3.4 or newer. The web app shell and manifest are in `apps/mobile/web/`; native Android/iOS runner files are not checked in yet.
 
-Set `API_BASE_URL` at build time when running on a physical device, using the development computer's LAN address. The app defaults to `http://10.0.2.2:3001` on Android emulators and `http://localhost:3001` on iOS simulators. Use HTTPS for production origins. The mobile app never connects directly to Supabase.
+Start the API with `npm run dev:api` from the repository root. In another terminal, run the Flutter PWA during development:
+
+```sh
+cd apps/mobile
+flutter pub get
+flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:3001
+```
+
+Create a deployable web build with:
+
+```sh
+flutter build web --release --dart-define=API_BASE_URL=https://your-api.example
+```
+
+Serve the generated `apps/mobile/build/web/` over HTTPS for installation outside localhost. Ordering still requires a connection to the API; offline ordering is not part of this demo. For native development, generate the Android/iOS runners with Flutter. The API defaults to `http://10.0.2.2:3001` on Android emulators and `http://localhost:3001` on iOS simulators; physical devices need the development computer's LAN address. The Flutter client never connects directly to Supabase.
 
 ## Structure
 
 - `apps/web/`: responsive React + TypeScript customer ordering site
-- `apps/mobile/`: Flutter customer ordering app source
+- `apps/mobile/`: Flutter customer ordering app and PWA source
 - `apps/api/`: HTTP API for menu, authoritative pricing, order creation, and tracking
 - `packages/contracts/`: shared domain and API types, menu fixtures, and pricing validation
 - `supabase/migrations/`: demo menu schema and seed data, plus private demo order storage
