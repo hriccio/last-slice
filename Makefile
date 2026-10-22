@@ -1,8 +1,9 @@
 FLUTTER ?= flutter
 API_BASE_URL ?= http://localhost:3001
 CHROME_EXECUTABLE ?= chromium
+ANDROID_API_BASE_URL ?= http://10.0.2.2:3001
 
-.PHONY: api flutter flutter-get flutter-web-server flutter-build-web flutter-local
+.PHONY: api flutter flutter-get flutter-web-server flutter-build-web flutter-local android android-build
 
 # Start only the API when you do not already run it with `npm run dev`.
 api:
@@ -27,3 +28,11 @@ flutter-web-server: flutter-get
 flutter-build-web: flutter-get
 	$(FLUTTER) config --enable-web
 	cd apps/mobile && $(FLUTTER) build web --release --dart-define=API_BASE_URL=$(API_BASE_URL)
+
+# Run on the selected Android emulator; start the API with `npm run dev` first.
+android: flutter-get
+	cd apps/mobile && $(FLUTTER) run --dart-define=API_BASE_URL=$(ANDROID_API_BASE_URL)
+
+# Build a locally installable debug APK for the Android emulator.
+android-build: flutter-get
+	cd apps/mobile && $(FLUTTER) build apk --debug --dart-define=API_BASE_URL=$(ANDROID_API_BASE_URL)

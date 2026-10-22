@@ -21,7 +21,7 @@ npm run build
 
 ## Flutter app and PWA
 
-`apps/mobile/` is a separate Flutter client alongside the React website in `apps/web/`. The Flutter client targets the browser as an installable PWA and shares its Dart UI/API client with future Android and iOS builds. It needs Flutter with Dart 3.4 or newer. The web app shell and manifest are in `apps/mobile/web/`; native Android/iOS runner files are not checked in yet.
+`apps/mobile/` is a separate Flutter client alongside the React website in `apps/web/`. The Flutter client targets the browser as an installable PWA and shares its Dart UI/API client with future Android and iOS builds. It needs Flutter with Dart 3.4 or newer. The web app shell and manifest are in `apps/mobile/web/`; a debug Android runner is checked in; an iOS runner is not part of this slice.
 
 Start Flutter from the repository root after starting the API with your usual `npm run dev` command:
 
@@ -37,7 +37,29 @@ make flutter CHROME_EXECUTABLE=/path/to/chromium API_BASE_URL=http://localhost:3
 
 Use `make flutter-web-server` when Chrome cannot be launched directly, or `make flutter-build-web` to create a release build.
 
-Serve the generated `apps/mobile/build/web/` over HTTPS for installation outside localhost. Ordering still requires a connection to the API; offline ordering is not part of this demo. For native development, generate the Android/iOS runners with Flutter. The API defaults to `http://10.0.2.2:3001` on Android emulators and `http://localhost:3001` on iOS simulators; physical devices need the development computer's LAN address. The Flutter client never connects directly to Supabase.
+Serve the generated `apps/mobile/build/web/` over HTTPS for installation outside localhost. Ordering still requires a connection to the API; offline ordering is not part of this demo.
+
+### Android emulator
+
+Install Flutter, Android Studio or the Android command-line tools, an Android SDK, and an emulator. Accept the SDK licenses, then start the API:
+
+```sh
+npm run dev
+```
+
+List available emulators with `flutter emulators`, start one with `flutter emulators --launch <emulator-id>`, and run the app from the repository root:
+
+```sh
+make android
+```
+
+The emulator uses `http://10.0.2.2:3001` to reach the development API on the host. Override this for another target with `make android ANDROID_API_BASE_URL=http://<host-address>:3001`. To build a locally installable debug APK:
+
+```sh
+make android-build
+```
+
+The APK is written to `apps/mobile/build/app/outputs/flutter-apk/app-debug.apk`. Android internet access is enabled for the app; local HTTP traffic is allowed in debug builds only. Production builds must use an HTTPS API URL. Android's application id is `com.lastslice.demo`; this slice does not configure release signing or store distribution. The Flutter client never connects directly to Supabase.
 
 ## Structure
 

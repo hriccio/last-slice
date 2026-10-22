@@ -1,6 +1,6 @@
 # 004 — Flutter Android emulator proof
 
-**Status:** Proposed for review  
+**Status:** Approved for implementation
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [002 — Flutter cross-platform demo ordering](../002-mobile-demo-ordering/spec.md), [003 — Flutter Web PWA customer client](../003-flutter-web-pwa/spec.md)
 
 ## Outcome
