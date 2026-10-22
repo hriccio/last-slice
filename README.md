@@ -41,7 +41,7 @@ Serve the generated `apps/mobile/build/web/` over HTTPS for installation outside
 
 ### Android emulator
 
-Install Flutter, Android Studio or the Android command-line tools, an Android SDK, and an emulator. Accept the SDK licenses interactively with Flutter:
+Install Flutter, Android Studio, an Android SDK, and an emulator. In Android Studio, open **Tools → SDK Manager → SDK Tools**, select **Android SDK Command-line Tools (latest)**, and apply the change. This installs `sdkmanager`, which Flutter needs to manage SDK licenses and packages. Then accept the SDK licenses interactively with Flutter:
 
 ```sh
 flutter doctor --android-licenses
