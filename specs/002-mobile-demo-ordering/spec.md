@@ -74,6 +74,8 @@ The mobile app calls `/quotes` after cart or fulfillment changes, debouncing onl
 
 ## Platform and configuration
 
+The browser/PWA target's installability, web shell, Chromium workflow, and deployment requirements are further specified in [003 — Flutter Web PWA customer client](../003-flutter-web-pwa/spec.md).
+
 - Use one browser-compatible HTTP client for web and native targets; do not import `dart:io` into code compiled for web.
 - Configure the API origin with a build-time `API_BASE_URL` value. Default to `http://localhost:3001` in a local browser and iOS simulator, and `http://10.0.2.2:3001` on Android emulator. A physical device needs the development computer's LAN address. Production URLs must use HTTPS and allow the deployed web origin through API CORS.
 - Serve the PWA over HTTPS in production (localhost is acceptable for local development). Keep the API origin configurable at build time.
