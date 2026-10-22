@@ -23,31 +23,19 @@ npm run build
 
 `apps/mobile/` is a separate Flutter client alongside the React website in `apps/web/`. The Flutter client targets the browser as an installable PWA and shares its Dart UI/API client with future Android and iOS builds. It needs Flutter with Dart 3.4 or newer. The web app shell and manifest are in `apps/mobile/web/`; native Android/iOS runner files are not checked in yet.
 
-Start the API with `npm run dev:api` from the repository root. In another terminal, run the Flutter PWA during development:
+Quickly start the API and Flutter app together from the repository root:
 
 ```sh
-cd apps/mobile
-flutter pub get
-flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:3001
+make flutter-local
 ```
 
-If Flutter does not discover Chromium, set `CHROME_EXECUTABLE` to its executable and retry:
+This runs Flutter in Chrome and stops both processes with Ctrl+C. If Flutter is not on your `PATH`, load your local Flutter setup first (for example, `source ~/scripts/mybashrc`). To run each part separately, use `make api` in one terminal and `make flutter` in another. The Flutter target fetches dependencies before launch. Override the API URL or Chrome executable when needed:
 
 ```sh
-CHROME_EXECUTABLE=/path/to/chromium flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:3001
+make flutter API_BASE_URL=http://localhost:3001 CHROME_EXECUTABLE=/path/to/chromium
 ```
 
-Or start Flutter's browser-independent web server and open its printed localhost URL in Chromium:
-
-```sh
-flutter run -d web-server --dart-define=API_BASE_URL=http://localhost:3001
-```
-
-Create a deployable web build with:
-
-```sh
-flutter build web --release --dart-define=API_BASE_URL=https://your-api.example
-```
+Use `make flutter-web-server` when Chrome cannot be launched directly, or `make flutter-build-web` to create a release build.
 
 Serve the generated `apps/mobile/build/web/` over HTTPS for installation outside localhost. Ordering still requires a connection to the API; offline ordering is not part of this demo. For native development, generate the Android/iOS runners with Flutter. The API defaults to `http://10.0.2.2:3001` on Android emulators and `http://localhost:3001` on iOS simulators; physical devices need the development computer's LAN address. The Flutter client never connects directly to Supabase.
 
