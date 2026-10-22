@@ -31,6 +31,18 @@ flutter pub get
 flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:3001
 ```
 
+If Flutter does not discover Chromium, set `CHROME_EXECUTABLE` to its executable and retry:
+
+```sh
+CHROME_EXECUTABLE=/path/to/chromium flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:3001
+```
+
+Or start Flutter's browser-independent web server and open its printed localhost URL in Chromium:
+
+```sh
+flutter run -d web-server --dart-define=API_BASE_URL=http://localhost:3001
+```
+
 Create a deployable web build with:
 
 ```sh

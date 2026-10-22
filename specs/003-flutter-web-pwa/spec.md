@@ -1,6 +1,6 @@
 # 003 — Flutter Web PWA customer client
 
-**Status:** Proposed for review
+**Status:** Approved for implementation
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [001 — Web demo ordering journey](../001-web-demo-ordering/spec.md), [002 — Flutter cross-platform demo ordering](../002-mobile-demo-ordering/spec.md)
 
 ## Outcome
@@ -76,15 +76,15 @@ Flutter's `web-server` debugging mode may have reduced debugger support; it is a
 
 ## Acceptance criteria
 
-- [ ] `flutter build web --release` compiles the same Flutter ordering source used by native targets.
-- [ ] The app launches in Chromium and loads the localized API menu.
+- [x] `flutter build web --release` compiles the same Flutter ordering source used by native targets.
+- [x] The app launches in Chromium and loads the localized API menu.
 - [ ] The app can complete the spec 002 ordering journey in both locales, including a demo order and status lookup.
 - [ ] Browser quote totals agree with the API, and no order can be presented as real payment or fulfillment.
-- [ ] The web manifest parses and contains the required app metadata, standalone mode, and 192px/512px icons.
+- [x] The web manifest parses and contains the required app metadata, standalone mode, and 192px/512px icons.
 - [ ] A compatible browser offers installation when the app is served over HTTPS; the installed app opens directly into the Flutter ordering experience.
 - [ ] The layout remains usable at desktop and narrow phone viewport sizes.
 - [ ] When the API is unavailable, the app shows localized errors and does not fabricate menu data, prices, or successful orders.
-- [ ] No privileged Supabase credentials are present in the web build or Flutter source.
+- [x] No privileged Supabase credentials are present in the web build or Flutter source.
 
 ## Decisions fixed by this spec
 

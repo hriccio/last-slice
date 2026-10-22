@@ -330,7 +330,9 @@ class _BrowseScreenState extends State<BrowseScreen> {
   @override
   void initState() {
     super.initState();
-    widget.state.loadMenu();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.state.loadMenu();
+    });
   }
 
   @override
