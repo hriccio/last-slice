@@ -1,17 +1,18 @@
-# 002 — Flutter mobile demo ordering
+# 002 — Flutter cross-platform demo ordering
 
 **Status:** Approved for implementation
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [001 — Web demo ordering journey](../001-web-demo-ordering/spec.md)
 
 ## Outcome
 
-Deliver the same simulated pizzeria ordering journey in a Flutter app for Android and iOS. Customers start by browsing and complete a short guided flow: browse → customize → checkout → confirmation. The app uses the existing API for menu, authoritative price quotes, order submission, and status lookup; it does not reimplement pricing rules.
+Deliver a second customer client in Flutter, separate from the React website, for browser/PWA, Android, and iOS targets. Customers start by browsing and complete a short guided flow: browse → customize → checkout → confirmation. The same Flutter/Dart UI and API client should build for web and native mobile. The app uses the existing API for menu, authoritative price quotes, order submission, and status lookup; it does not reimplement pricing rules.
 
 ## Scope
 
 ### Included
 
-- Flutter customer app in `apps/mobile/` for Android and iOS.
+- Flutter customer app in `apps/mobile/` for web, Android, and iOS.
+- An installable Flutter Web PWA with app name, theme colors, standalone display mode, and 192px/512px icons. Offline ordering is not required; the menu and order operations depend on the API.
 - Browse the five flavors from the API, view product details, and configure one pizza at a time.
 - Size, crust, ingredient removal, and up to three extra toppings using the choices returned by the API.
 - Cart with editable quantity, fulfillment selection, price quote, and clear line-item customization summaries.
@@ -73,13 +74,16 @@ The mobile app calls `/quotes` after cart or fulfillment changes, debouncing onl
 
 ## Platform and configuration
 
-- Configure the API origin with a build-time `API_BASE_URL` value. Default to `http://10.0.2.2:3001` on Android emulator and `http://localhost:3001` on iOS simulator; document that a physical device needs the development computer's LAN address. Production URLs must use HTTPS.
+- Use one browser-compatible HTTP client for web and native targets; do not import `dart:io` into code compiled for web.
+- Configure the API origin with a build-time `API_BASE_URL` value. Default to `http://localhost:3001` in a local browser and iOS simulator, and `http://10.0.2.2:3001` on Android emulator. A physical device needs the development computer's LAN address. Production URLs must use HTTPS and allow the deployed web origin through API CORS.
+- Serve the PWA over HTTPS in production (localhost is acceptable for local development). Keep the API origin configurable at build time.
 - Do not include service-role credentials or Supabase access in the app. It talks only to the TypeScript API.
 - Use Flutter SDK and Dart SDK versions selected by the implementation environment. Avoid additional packages unless needed for a requirement in this spec.
 
 ## Acceptance criteria
 
-- [ ] Android and iOS Flutter targets launch into a localized menu fetched from the API.
+- [ ] Flutter Web launches into a localized menu fetched from the API and can be installed from a compatible browser using its manifest and icons.
+- [ ] Android and iOS Flutter targets launch into the same localized customer flow.
 - [ ] The customer can complete browse → customize → cart → checkout → confirmation without chat or an account.
 - [ ] Every configurable option comes from the API; totals update through `POST /quotes` and match API order totals.
 - [ ] Cart and confirmation show size, crust, removed ingredients, extras, and quantity correctly.
@@ -91,7 +95,7 @@ The mobile app calls `/quotes` after cart or fulfillment changes, debouncing onl
 
 ## Decisions fixed by this spec
 
-- Flutter mobile reuses the existing API, adding `POST /quotes` for server-authoritative cart previews.
+- Flutter reuses the existing API, adding `POST /quotes` for server-authoritative cart previews, and targets web/PWA and native mobile from one Dart codebase. React remains a separate web customer client.
 - The customer flow is structured and chat-free in this slice; contextual AI help gets a separate spec.
 - Locale defaults to `pt-BR` and persists only for the running app session.
 - The mobile UI does not advance order statuses; it displays the server's latest status.
