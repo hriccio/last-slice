@@ -23,6 +23,14 @@ const server=createServer(async(req,res)=>{
   const menuFlavors=flavors.filter(f=>!db||availableIds.has(f.id)).map(f=>{const row=menuRows.find(item=>item.id===f.id);return {id:f.id,name:row?.display_name??f.name,description:row?.descriptions?.[locale]??f.descriptions[locale],ingredients:f.ingredients.filter(([id])=>!row||row.ingredients.includes(id)).map(([id,pt,en])=>({id,name:locale==='pt-BR'?pt:en})),prices:row?.prices_brl_cents??f.prices};});
   return send(res,200,{locale,flavors:menuFlavors,sizes,crusts:[{id:'traditional',surcharge:0},{id:'thin',surcharge:0},{id:'stuffed',surcharge:crustSurcharge}],extras:extras.map(e=>({id:e.id,name:e.label[locale],price:500})),deliveryFee});
  }
+ if(req.method==='POST'&&url.pathname==='/quotes'){
+  let input:any;try{input=await body(req)}catch{return send(res,400,safeError('validation_error').body)}
+  const fields:Record<string,string>={};
+  if(!['pickup','delivery'].includes(input.fulfillment))fields.fulfillment='validation.fulfillment';
+  let quote:any;try{quote=calculate(input.lines||[],input.fulfillment)}catch(e){fields.lines=`validation.${e instanceof Error?e.message:'invalid_order'}`}
+  if(Object.keys(fields).length)return send(res,400,safeError('validation_error',400,fields).body);
+  return send(res,200,quote);
+ }
  if(req.method==='POST'&&url.pathname==='/orders'){
   let input:OrderRequest;try{input=await body(req)}catch{return send(res,400,safeError('validation_error').body)}
   const fields:Record<string,string>={};
