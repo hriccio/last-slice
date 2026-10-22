@@ -23,16 +23,16 @@ npm run build
 
 `apps/mobile/` is a separate Flutter client alongside the React website in `apps/web/`. The Flutter client targets the browser as an installable PWA and shares its Dart UI/API client with future Android and iOS builds. It needs Flutter with Dart 3.4 or newer. The web app shell and manifest are in `apps/mobile/web/`; native Android/iOS runner files are not checked in yet.
 
-Quickly start the API and Flutter app together from the repository root:
+Start Flutter from the repository root after starting the API with your usual `npm run dev` command:
 
 ```sh
-make flutter-local
+make flutter
 ```
 
-This runs Flutter in Chrome and stops both processes with Ctrl+C. If Flutter is not on your `PATH`, load your local Flutter setup first (for example, `source ~/scripts/mybashrc`). To run each part separately, use `make api` in one terminal and `make flutter` in another. The Flutter target fetches dependencies before launch. Override the API URL or Chrome executable when needed:
+`make flutter-local` is an alias. These targets run only Flutter, so they do not start a duplicate API process. If Flutter is not on your `PATH`, load your local Flutter setup first (for example, `source ~/scripts/mybashrc`). The target fetches dependencies, enables Flutter web support in its local configuration, and launches Chrome. Chromium is the default browser executable; override it or the API URL as needed:
 
 ```sh
-make flutter API_BASE_URL=http://localhost:3001 CHROME_EXECUTABLE=/path/to/chromium
+make flutter CHROME_EXECUTABLE=/path/to/chromium API_BASE_URL=http://localhost:3001
 ```
 
 Use `make flutter-web-server` when Chrome cannot be launched directly, or `make flutter-build-web` to create a release build.
