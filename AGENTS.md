@@ -1,31 +1,33 @@
-# Repository Guidelines
+# Repository guidance
 
-This is a hriccio AI-assisted repository.
+## Purpose
 
-## Repository Role
+The Last Slice is a fictional pizzeria MVP and an SDD (specification-driven development) monorepo. Keep the repository spec-first: agree on behavior in `specs/` before adding implementation. Avoid framework scaffolding, generated projects, and dependencies until a spec requires them.
 
-- Own one focused Python application, library, automation tool, data utility, or experiment.
-- Keep the default runtime local and Python-based unless a decision explicitly adds infrastructure.
-- Prefer small, testable modules under `src/`.
-- Keep packaging metadata explicit in `pyproject.toml` when the repository contains Python code.
+## Repository map
 
-## Project Structure & Module Organization
+- `specs/`: product and feature specifications; `specs/000-foundation/spec.md` is the initial product contract.
+- `apps/web/`: React + TypeScript customer website.
+- `apps/mobile/`: Flutter customer application.
+- `apps/api/`: TypeScript API and server-side business operations.
+- `packages/contracts/`: shared API, domain, and validation contracts consumed by the apps.
+- `supabase/migrations/`: ordered SQL migrations for the Supabase schema.
 
-- `src/` owns application and library code.
-- `tests/` owns pytest coverage.
-- `pyproject.toml` owns packaging, dependency, and pytest configuration.
-- `.venv/`, build outputs, caches, and generated artifacts must not be edited or committed.
+Keep customer experiences in their clients, business rules and privileged operations on the API, and shared types/contracts in `packages/contracts/`. Do not duplicate business rules in clients. Keep migrations additive and reviewable. Add nested `AGENTS.md` only when a directory needs guidance that differs from this file.
 
-## Build, Test, And Development Commands
+## SDD workflow
 
-- `python3 -m venv .venv` creates a local virtual environment.
-- `. .venv/bin/activate` activates the virtual environment.
-- `python -m pip install -e ".[dev]"` installs the package and development dependencies.
-- `pytest` runs tests.
+1. Read the relevant foundation and feature specs before implementation.
+2. For new behavior, write or update a focused spec with goals, user flows, requirements, acceptance criteria, and explicit non-goals.
+3. Review the spec for consistency with the shared business model, both locales, demo-only transaction constraints, and existing contracts.
+4. Implement only the behavior covered by the accepted spec; update contracts, migrations, and docs alongside affected code.
+5. Validate using the checks appropriate to the changed artifacts and report what was and was not run.
 
-## Working Rules
+Specs describe intended behavior; they are not a reason to add speculative infrastructure. Do not store real payment credentials, process real payments, or represent demo transactions as completed real orders.
 
-- Keep behavior covered by tests where practical.
-- Avoid adding own infrastructure, monitoring, databases, or server runtimes unless the repository purpose requires them.
-- Use `hr capability show mcp-usage` for MCP guidance; default allowed MCPs are `aws-docs`, `chrome-devtools`, `codex-usage`, `discord-docs`, `github`, and `openaiDeveloperDocs`.
-- Preserve durable project decisions in Markdown when scope changes.
+## General working rules
+
+- Preserve the fictional demo scope and keep customer-facing text available in Brazilian Portuguese (`pt-BR`) and US English (`en-US`).
+- Treat Supabase as the intended backend platform; do not introduce self-hosting or deployment assumptions without a spec decision.
+- Keep secrets out of source control. Use environment examples with placeholders if configuration is later needed.
+- Do not commit build output, dependency caches, local environment files, or generated platform files unless a spec requires them.
