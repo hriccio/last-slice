@@ -1,0 +1,14 @@
+name: last_slice_mobile
+description: The Last Slice fictional pizzeria demo ordering app.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
