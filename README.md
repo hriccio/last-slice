@@ -1,28 +1,30 @@
 # The Last Slice
 
-The Last Slice is a fictional pizzeria MVP used to demonstrate a bilingual, multi-client ordering experience. This repository is a spec-first monorepo for a React + TypeScript website, a Flutter mobile app, a TypeScript API, shared contracts, and Supabase migrations.
+The Last Slice is a fictional pizzeria ordering demo. The web app supports Brazilian Portuguese (`pt-BR`) and US English (`en-US`), with structured customization and checkout as the primary flow. Orders, payments, and fulfillment are simulated.
 
-## Product direction
+## Run locally
 
-Customers primarily browse a structured menu, customize a pizza, and move through a short checkout. On mobile, the intended path is browse → customize → checkout (“next, next, finish”). An optional contextual AI chat is available as help when a customer gets stuck; chat is a fallback, not the default way to place an order. Web customers also use direct, structured controls.
+Requirements: Node.js 20+ and npm. From the repository root:
 
-Both clients support Brazilian Portuguese (`pt-BR`) and US English (`en-US`). The MVP is a demo: transactions and order outcomes are simulated and must never be presented as real payment processing or fulfillment.
+```sh
+npm install
+npm run dev
+```
 
-## SDD and repository map
+This starts the API at `http://localhost:3001` and web app at `http://localhost:5173`. Without Supabase credentials, the API keeps demo orders in memory for local preview. For persisted demo orders, create a Supabase project, apply `supabase/migrations/202610220001_demo_ordering.sql`, then start the API with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` set in the environment. Keep the service role key private. The API may be pointed at a different URL with `VITE_API_URL` when building the web client.
 
-Start with [`specs/000-foundation/spec.md`](specs/000-foundation/spec.md) for the product contract. The first buildable slice is specified in [`specs/001-web-demo-ordering/spec.md`](specs/001-web-demo-ordering/spec.md). New behavior should be specified and reviewed before implementation. See [`AGENTS.md`](AGENTS.md) for the repository workflow and boundaries.
+## Build
 
-| Path | Responsibility |
-| --- | --- |
-| `specs/` | Product and feature specifications |
-| `apps/web/` | React + TypeScript web customer experience |
-| `apps/mobile/` | Flutter mobile customer experience |
-| `apps/api/` | TypeScript API and shared business operations |
-| `packages/contracts/` | Shared domain, request/response, and validation contracts |
-| `supabase/migrations/` | Ordered SQL schema migrations |
+```sh
+npm run build
+```
 
-These directories are intentionally empty until an accepted spec calls for implementation. No app scaffolding or package dependencies are part of the foundation setup.
+## Structure
 
-## Current status
+- `apps/web/`: responsive React + TypeScript customer ordering site
+- `apps/api/`: HTTP API for menu, authoritative pricing, order creation, and tracking
+- `packages/contracts/`: shared domain and API types, menu fixtures, and pricing validation
+- `supabase/migrations/`: demo menu schema and seed data, plus private demo order storage
+- `specs/`: product contracts and feature specifications
 
-The foundation and first web ordering slice are specified. No runnable application exists yet, so there are no build or test commands at this stage. Add the appropriate checks when implementation begins.
+The API does not return customer contact or address data from order tracking. No payment credentials are collected.

@@ -1,0 +1,7 @@
+{
+  "name": "last-slice",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {"dev": "concurrently -k -n api,web -c yellow,cyan \"npm:dev:api\" \"npm:dev:web\"", "dev:api": "npm --workspace @last-slice/api run dev", "dev:web": "npm --workspace @last-slice/web run dev", "build": "npm --workspace @last-slice/contracts run build && npm --workspace @last-slice/api run build && npm --workspace @last-slice/web run build"},
+  "devDependencies": {"concurrently":"^9.1.2","typescript":"^5.7.3"}
+}
