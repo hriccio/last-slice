@@ -679,18 +679,24 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
           const SizedBox(height: 22),
           _SectionTitle(_copy(locale, 'crust')),
           const SizedBox(height: 10),
-          for (final crust in menu.crusts)
-            RadioListTile<String>(
-              value: crust.id,
-              groupValue: crustId,
-              contentPadding: EdgeInsets.zero,
-              activeColor: _orange,
-              title: Text(_copy(locale, crust.id)),
-              subtitle: Text(crust.id == 'stuffed'
-                  ? '+ ${_money(crust.surcharge(sizeId), locale)}'
-                  : _copy(locale, 'included')),
-              onChanged: (value) => _changed(() => crustId = value!),
+          RadioGroup<String>(
+            groupValue: crustId,
+            onChanged: (value) => _changed(() => crustId = value!),
+            child: Column(
+              children: [
+                for (final crust in menu.crusts)
+                  RadioListTile<String>(
+                    value: crust.id,
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: _orange,
+                    title: Text(_copy(locale, crust.id)),
+                    subtitle: Text(crust.id == 'stuffed'
+                        ? '+ ${_money(crust.surcharge(sizeId), locale)}'
+                        : _copy(locale, 'included')),
+                  ),
+              ],
             ),
+          ),
           const SizedBox(height: 14),
           _SectionTitle(_copy(locale, 'ingredients')),
           Text(_copy(locale, 'removeHint'), style: const TextStyle(color: _muted, fontSize: 12)),
@@ -921,7 +927,7 @@ class _FulfillmentChoice extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 17, horizontal: 12),
           decoration: BoxDecoration(
-            color: selected ? _orange.withOpacity(.16) : _surface,
+            color: selected ? _orange.withValues(alpha: .16) : _surface,
             border: Border.all(color: selected ? _orange : _surfaceLight),
             borderRadius: BorderRadius.circular(16),
           ),
@@ -1338,9 +1344,9 @@ class _DemoNotice extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
-          color: _orange.withOpacity(.12),
+          color: _orange.withValues(alpha: .12),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _orange.withOpacity(.4)),
+          border: Border.all(color: _orange.withValues(alpha: .4)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
