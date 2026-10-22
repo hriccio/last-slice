@@ -41,7 +41,13 @@ Serve the generated `apps/mobile/build/web/` over HTTPS for installation outside
 
 ### Android emulator
 
-Install Flutter, Android Studio or the Android command-line tools, an Android SDK, and an emulator. Accept the SDK licenses, then start the API:
+Install Flutter, Android Studio or the Android command-line tools, an Android SDK, and an emulator. Accept the SDK licenses interactively with Flutter:
+
+```sh
+flutter doctor --android-licenses
+```
+
+Review and accept the requested licenses, including the NDK license, then start the API:
 
 ```sh
 npm run dev
