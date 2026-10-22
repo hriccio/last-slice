@@ -31,3 +31,4 @@ Specs describe intended behavior; they are not a reason to add speculative infra
 - Treat Supabase as the intended backend platform; do not introduce self-hosting or deployment assumptions without a spec decision.
 - Keep secrets out of source control. Use environment examples with placeholders if configuration is later needed.
 - Do not commit build output, dependency caches, local environment files, or generated platform files unless a spec requires them.
+- Commit completed changes before wrapping up a task. Use a concise commit message that describes the change, and report the commit hash in the final response.
