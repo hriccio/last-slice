@@ -31,7 +31,7 @@ This is a customer-facing web and Flutter slice. It uses the existing order look
 
 ## Customer flow
 
-1. After placing a demo order, the customer can choose **Track this order** from confirmation. The order code is carried into the tracking view without requiring re-entry.
+1. After placing a demo order, the confirmation screen keeps its status preview current while it remains visible. The customer can choose **Track this order** from confirmation; the order code is carried into the tracking view without requiring re-entry.
 2. The customer can also open tracking later and enter a demo order code. A valid lookup displays the order summary, current status, lifecycle timeline, and last checked time.
 3. While the tracking view remains visible, the client refreshes the lookup periodically. A status change from the kitchen board updates the displayed status and timeline without clearing the order code or summary.
 4. The customer can request an immediate refresh. The interface shows when the last successful check occurred and gives a recoverable message if a check fails.
@@ -55,7 +55,7 @@ The timeline uses the current status returned by the API and the lifecycle order
 
 - Use the existing `GET /orders/{orderCode}` endpoint. Do not add an unauthenticated order list or a subscription channel in this slice.
 - Return the existing privacy-limited response plus `updatedAt`, an ISO-8601 timestamp for the current persisted status. For an order that has not advanced, use its creation time. In memory mode, use the order's current update time or creation time.
-- Poll no more frequently than once every 15 seconds while the tracking view is visible. Pause while the tab/app is hidden or backgrounded, and avoid overlapping lookups.
+- Poll no more frequently than once every 15 seconds while the confirmation status preview or tracking view is visible. Pause while the screen/tab/app is hidden, backgrounded, or covered by another route, and avoid overlapping lookups.
 - Refresh immediately on initial lookup, on a manual refresh request, and when a hidden/backgrounded tracking view becomes visible again.
 - After a failed refresh, retain the last successfully loaded status and show a localized stale-data or connection message with a retry action. Do not replace a known status with an error or a fabricated state.
 - Stop polling on terminal `completed` or `cancelled` status. Manual refresh remains available.
@@ -81,6 +81,7 @@ The timeline uses the current status returned by the API and the lifecycle order
 ## Acceptance criteria
 
 - [ ] Confirmation can open tracking with the order code already populated in the React and Flutter clients.
+- [ ] The confirmation status preview reflects a newer server status while confirmation remains visible, without requiring the customer to reopen the order.
 - [ ] A customer can enter an order code and load the latest server status in both locales.
 - [ ] The timeline follows the correct pickup or delivery lifecycle branch and distinguishes current, upcoming, completed, and cancelled demo states.
 - [ ] A kitchen status change appears during periodic refresh without requiring code re-entry; polling is at least 15 seconds apart and pauses when hidden/backgrounded.

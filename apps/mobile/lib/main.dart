@@ -1317,7 +1317,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 }
 
-class ConfirmationScreen extends StatelessWidget {
+class ConfirmationScreen extends StatefulWidget {
   const ConfirmationScreen(
       {super.key, required this.state, required this.order});
 
@@ -1325,7 +1325,117 @@ class ConfirmationScreen extends StatelessWidget {
   final Json order;
 
   @override
+  State<ConfirmationScreen> createState() => _ConfirmationScreenState();
+}
+
+class _ConfirmationScreenState extends State<ConfirmationScreen>
+    with WidgetsBindingObserver, RouteAware {
+  late String status;
+  late String updatedAt;
+  DateTime? lastChecked;
+  String? refreshError;
+  Timer? polling;
+  PageRoute<dynamic>? route;
+  bool routeVisible = true;
+  bool inFlight = false;
+
+  @override
+  void initState() {
+    super.initState();
+    status = widget.order['status'] as String;
+    updatedAt =
+        (widget.order['updatedAt'] ?? widget.order['createdAt']) as String;
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
+    _startPolling();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final currentRoute = ModalRoute.of(context);
+    if (currentRoute is PageRoute<dynamic> && currentRoute != route) {
+      if (route != null) _routeObserver.unsubscribe(this);
+      route = currentRoute;
+      _routeObserver.subscribe(this, currentRoute);
+    }
+  }
+
+  @override
+  void didPushNext() {
+    routeVisible = false;
+    _stopPolling();
+  }
+
+  @override
+  void didPopNext() {
+    routeVisible = true;
+    _refresh();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState lifecycle) {
+    if (lifecycle == AppLifecycleState.resumed) {
+      if (routeVisible) _refresh();
+    } else {
+      _stopPolling();
+    }
+  }
+
+  void _stopPolling() {
+    polling?.cancel();
+    polling = null;
+  }
+
+  void _startPolling() {
+    _stopPolling();
+    if (!routeVisible || status == 'completed' || status == 'cancelled') return;
+    polling = Timer.periodic(const Duration(seconds: 15), (_) {
+      final lifecycle = WidgetsBinding.instance.lifecycleState;
+      if (routeVisible &&
+          (lifecycle == null || lifecycle == AppLifecycleState.resumed)) {
+        _refresh();
+      }
+    });
+  }
+
+  Future<void> _refresh() async {
+    if (inFlight || status == 'completed' || status == 'cancelled') return;
+    inFlight = true;
+    try {
+      final result =
+          await widget.state.track(widget.order['orderCode'] as String);
+      if (!mounted) return;
+      setState(() {
+        status = result['status'] as String;
+        updatedAt = (result['updatedAt'] ?? result['createdAt']) as String;
+        lastChecked = DateTime.now();
+        refreshError = null;
+      });
+      _startPolling();
+    } catch (_) {
+      if (mounted) {
+        setState(() =>
+            refreshError = _copy(widget.state.locale, 'trackingConnection'));
+        _startPolling();
+      }
+    } finally {
+      inFlight = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _stopPolling();
+    WidgetsBinding.instance.removeObserver(this);
+    _routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final state = widget.state;
+    final order = widget.order;
     final locale = state.locale;
     final menu = state.menu!;
     final lines = (order['lines'] as List)
@@ -1347,10 +1457,15 @@ class ConfirmationScreen extends StatelessWidget {
           _ResultCard(
             state: state,
             orderCode: order['orderCode'] as String,
-            status: order['status'] as String,
+            status: status,
             lines: lines,
             total: order['total'] as int,
             menu: menu,
+            updatedAt: updatedAt,
+            fulfillment: order['fulfillment'] as String?,
+            tracking: true,
+            lastChecked: lastChecked,
+            refreshError: refreshError,
           ),
           const SizedBox(height: 18),
           ElevatedButton.icon(
@@ -1615,6 +1730,8 @@ class _ResultCard extends StatelessWidget {
     this.updatedAt,
     this.fulfillment,
     this.tracking = false,
+    this.lastChecked,
+    this.refreshError,
   });
 
   final OrderState state;
@@ -1626,6 +1743,8 @@ class _ResultCard extends StatelessWidget {
   final String? updatedAt;
   final String? fulfillment;
   final bool tracking;
+  final DateTime? lastChecked;
+  final String? refreshError;
 
   @override
   Widget build(BuildContext context) {
@@ -1658,6 +1777,24 @@ class _ResultCard extends StatelessWidget {
             Text(_statusExplanation(locale, status),
                 style: const TextStyle(color: _muted, height: 1.4)),
             if (tracking) ...[
+              if (lastChecked != null) ...[
+                const SizedBox(height: 8),
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    '${_copy(locale, 'lastChecked')}: ${_formatTrackingTime(lastChecked!.toIso8601String(), locale)}',
+                    style: const TextStyle(color: _muted, fontSize: 11),
+                  ),
+                ),
+              ],
+              if (refreshError != null) ...[
+                const SizedBox(height: 8),
+                Semantics(
+                  liveRegion: true,
+                  child: Text(refreshError!,
+                      style: const TextStyle(color: _orange, fontSize: 11)),
+                ),
+              ],
               const SizedBox(height: 14),
               _StatusTimeline(
                 locale: locale,
