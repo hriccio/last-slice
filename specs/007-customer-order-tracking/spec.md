@@ -1,6 +1,6 @@
 # 007 — Customer order tracking
 
-**Status:** Proposed for review  
+**Status:** Implemented; web and Flutter builds validated, interactive acceptance pending
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [001 — Web demo ordering journey](../001-web-demo-ordering/spec.md), [002 — Flutter cross-platform demo ordering](../002-mobile-demo-ordering/spec.md), [003 — Flutter Web PWA customer client](../003-flutter-web-pwa/spec.md), [006 — Demo kitchen order board](../006-demo-kitchen-order-board/spec.md)
 
 ## Outcome

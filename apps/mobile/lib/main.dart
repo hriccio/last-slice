@@ -12,6 +12,8 @@ const _surfaceLight = Color(0xFF292929);
 const _orange = Color(0xFFFF7A2F);
 const _text = Color(0xFFF5F1EC);
 const _muted = Color(0xFFAAA39D);
+final RouteObserver<PageRoute<dynamic>> _routeObserver =
+    RouteObserver<PageRoute<dynamic>>();
 
 void main() => runApp(PizzeriaApp(state: OrderState(ApiClient())));
 
@@ -73,6 +75,7 @@ class PizzeriaApp extends StatelessWidget {
             ),
           ),
           home: BrowseScreen(state: state),
+          navigatorObservers: <NavigatorObserver>[_routeObserver],
         ),
       );
 }
@@ -130,6 +133,15 @@ String _copy(String locale, String key) {
       'trackHelp': 'Informe o código para consultar o status atual.',
       'find': 'Buscar pedido',
       'notFound': 'Pedido não encontrado. Confira o código e tente novamente.',
+      'trackingConnection':
+          'Não foi possível atualizar. Exibindo o último status carregado.',
+      'refresh': 'Atualizar status',
+      'refreshing': 'Atualizando…',
+      'lastChecked': 'Última consulta',
+      'statusUpdated': 'Status atualizado',
+      'timeline': 'Etapas demonstrativas',
+      'upcoming': 'Próxima etapa',
+      'unknownStatus': 'Status desconhecido. Tente atualizar novamente.',
       'connection':
           'Não foi possível conectar ao cardápio. Confira a conexão e tente novamente.',
       'validationName': 'Informe seu nome.',
@@ -209,6 +221,15 @@ String _copy(String locale, String key) {
       'trackHelp': 'Enter your code to see the latest status.',
       'find': 'Look up order',
       'notFound': 'Order not found. Check the code and try again.',
+      'trackingConnection':
+          'Could not refresh. Showing the last status we loaded.',
+      'refresh': 'Refresh status',
+      'refreshing': 'Refreshing…',
+      'lastChecked': 'Last checked',
+      'statusUpdated': 'Status updated',
+      'timeline': 'Demo order steps',
+      'upcoming': 'Next step',
+      'unknownStatus': 'Unknown status. Try refreshing again.',
       'connection':
           'Could not connect to the menu. Check your connection and try again.',
       'validationName': 'Enter your name.',
@@ -281,22 +302,22 @@ String _statusLabel(String locale, String status) {
 String _statusExplanation(String locale, String status) {
   const explanations = {
     'pt-BR': {
-      'received': 'A pizzaria recebeu o pedido demonstrativo.',
-      'confirmed': 'O pedido demonstrativo foi confirmado.',
-      'preparing': 'A equipe está preparando o pedido demonstrativo.',
-      'ready_for_pickup': 'O pedido demonstrativo está pronto para retirada.',
-      'out_for_delivery': 'O pedido demonstrativo saiu para entrega.',
-      'completed': 'O pedido demonstrativo foi concluído.',
-      'cancelled': 'O pedido demonstrativo foi cancelado.',
+      'received': 'O pedido demonstrativo consta como recebido.',
+      'confirmed': 'O pedido demonstrativo consta como confirmado.',
+      'preparing': 'O status demonstrativo indica preparo.',
+      'ready_for_pickup': 'O status demonstrativo indica pronto para retirada.',
+      'out_for_delivery': 'O status demonstrativo indica saiu para entrega.',
+      'completed': 'O pedido demonstrativo consta como concluído.',
+      'cancelled': 'O pedido demonstrativo consta como cancelado.',
     },
     'en-US': {
-      'received': 'The pizzeria received the demo order.',
-      'confirmed': 'The demo order was confirmed.',
-      'preparing': 'The team is preparing the demo order.',
-      'ready_for_pickup': 'The demo order is ready for pickup.',
-      'out_for_delivery': 'The demo order is out for delivery.',
-      'completed': 'The demo order is complete.',
-      'cancelled': 'The demo order was cancelled.',
+      'received': 'The demo order is marked as received.',
+      'confirmed': 'The demo order is marked as confirmed.',
+      'preparing': 'The demo status indicates preparation.',
+      'ready_for_pickup': 'The demo status indicates ready for pickup.',
+      'out_for_delivery': 'The demo status indicates out for delivery.',
+      'completed': 'The demo order is marked as complete.',
+      'cancelled': 'The demo order is marked as cancelled.',
     },
   };
   return explanations[locale]?[status] ?? '';
@@ -1361,20 +1382,85 @@ class TrackingScreen extends StatefulWidget {
   State<TrackingScreen> createState() => _TrackingScreenState();
 }
 
-class _TrackingScreenState extends State<TrackingScreen> {
+class _TrackingScreenState extends State<TrackingScreen>
+    with WidgetsBindingObserver, RouteAware {
   late final TextEditingController code;
   Json? order;
   bool loading = false;
+  bool _inFlight = false;
+  int _lookupRevision = 0;
   String? error;
+  DateTime? lastChecked;
+  Timer? _polling;
+  PageRoute<dynamic>? _route;
+  bool _routeVisible = true;
 
   @override
   void initState() {
     super.initState();
     code = TextEditingController(text: widget.initialCode);
+    WidgetsBinding.instance.addObserver(this);
+    if (widget.initialCode.trim().isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _lookup());
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute<dynamic> && route != _route) {
+      if (_route != null) _routeObserver.unsubscribe(this);
+      _route = route;
+      _routeObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void didPushNext() {
+    _routeVisible = false;
+    _stopPolling();
+  }
+
+  @override
+  void didPopNext() {
+    _routeVisible = true;
+    if (order != null) _lookup(silent: true);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (_routeVisible && order != null) _lookup(silent: true);
+    } else {
+      _stopPolling();
+    }
+  }
+
+  void _stopPolling() {
+    _polling?.cancel();
+    _polling = null;
+  }
+
+  void _startPolling() {
+    _stopPolling();
+    if (!_routeVisible ||
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return;
+    }
+    _polling = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (_routeVisible &&
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        _lookup(silent: true);
+      }
+    });
   }
 
   @override
   void dispose() {
+    _stopPolling();
+    WidgetsBinding.instance.removeObserver(this);
+    _routeObserver.unsubscribe(this);
     code.dispose();
     super.dispose();
   }
@@ -1395,20 +1481,65 @@ class _TrackingScreenState extends State<TrackingScreen> {
           TextField(
             controller: code,
             textCapitalization: TextCapitalization.characters,
+            onChanged: (value) {
+              _lookupRevision++;
+              if (order != null &&
+                  value.trim().toUpperCase() != order!['orderCode']) {
+                _stopPolling();
+                setState(() {
+                  order = null;
+                  lastChecked = null;
+                  error = null;
+                });
+              } else if (error != null) {
+                setState(() => error = null);
+              }
+            },
             decoration: InputDecoration(labelText: _copy(locale, 'orderCode')),
           ),
           const SizedBox(height: 12),
           ElevatedButton.icon(
-            onPressed: loading ? null : _lookup,
+            onPressed: loading ? null : () => _lookup(),
             icon: const Icon(Icons.search),
             label: Text(_copy(locale, 'find')),
           ),
-          if (error != null) ...[
+          if (error != null && order == null) ...[
             const SizedBox(height: 12),
             Text(error!, style: const TextStyle(color: _orange)),
           ],
           if (order != null) ...[
             const SizedBox(height: 20),
+            OutlinedButton.icon(
+              onPressed: loading ? null : () => _lookup(),
+              icon: loading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh),
+              label: Text(_copy(locale, loading ? 'refreshing' : 'refresh')),
+            ),
+            if (lastChecked != null)
+              Semantics(
+                liveRegion: true,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    '${_copy(locale, 'lastChecked')}: ${_formatTrackingTime(lastChecked!.toIso8601String(), locale)}',
+                    style: const TextStyle(color: _muted, fontSize: 12),
+                  ),
+                ),
+              ),
+            if (error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Semantics(
+                    liveRegion: true,
+                    child:
+                        Text(error!, style: const TextStyle(color: _orange))),
+              ),
+            const SizedBox(height: 12),
             _ResultCard(
               state: state,
               orderCode: order!['orderCode'] as String,
@@ -1418,6 +1549,9 @@ class _TrackingScreenState extends State<TrackingScreen> {
                   .toList(),
               total: order!['total'] as int,
               menu: menu,
+              updatedAt: order!['updatedAt'] as String?,
+              fulfillment: order!['fulfillment'] as String?,
+              tracking: true,
             ),
           ],
         ],
@@ -1425,20 +1559,49 @@ class _TrackingScreenState extends State<TrackingScreen> {
     );
   }
 
-  Future<void> _lookup() async {
-    setState(() {
-      loading = true;
-      error = null;
-      order = null;
-    });
+  Future<void> _lookup({bool silent = false}) async {
+    if (_inFlight || code.text.trim().isEmpty) return;
+    _inFlight = true;
+    final revision = ++_lookupRevision;
+    if (mounted && !silent)
+      setState(() {
+        loading = true;
+        error = null;
+      });
     try {
       final result = await widget.state.track(code.text);
-      if (mounted) setState(() => order = result);
-    } catch (_) {
-      if (mounted)
-        setState(() => error = _copy(widget.state.locale, 'notFound'));
+      if (mounted && revision == _lookupRevision) {
+        setState(() {
+          order = result;
+          lastChecked = DateTime.now();
+          error = null;
+        });
+        if (result['status'] == 'completed' ||
+            result['status'] == 'cancelled') {
+          _stopPolling();
+        } else {
+          _startPolling();
+        }
+      }
+    } catch (exception) {
+      if (mounted && revision == _lookupRevision)
+        setState(() {
+          if (order != null) {
+            error = _copy(widget.state.locale, 'trackingConnection');
+          } else if (exception is ApiException && exception.statusCode == 404) {
+            error = _copy(widget.state.locale, 'notFound');
+          } else {
+            error = _copy(widget.state.locale, 'trackingConnection');
+          }
+        });
+      if (order != null &&
+          order!['status'] != 'completed' &&
+          order!['status'] != 'cancelled') {
+        _startPolling();
+      }
     } finally {
-      if (mounted) setState(() => loading = false);
+      _inFlight = false;
+      if (mounted && !silent) setState(() => loading = false);
     }
   }
 }
@@ -1451,6 +1614,9 @@ class _ResultCard extends StatelessWidget {
     required this.lines,
     required this.total,
     required this.menu,
+    this.updatedAt,
+    this.fulfillment,
+    this.tracking = false,
   });
 
   final OrderState state;
@@ -1459,6 +1625,9 @@ class _ResultCard extends StatelessWidget {
   final List<CartLine> lines;
   final int total;
   final MenuCatalog menu;
+  final String? updatedAt;
+  final String? fulfillment;
+  final bool tracking;
 
   @override
   Widget build(BuildContext context) {
@@ -1481,12 +1650,30 @@ class _ResultCard extends StatelessWidget {
             Text(_copy(locale, 'status'),
                 style: const TextStyle(color: _muted)),
             const SizedBox(height: 5),
-            Text(_statusLabel(locale, status),
-                style:
-                    const TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
+            Semantics(
+              liveRegion: tracking,
+              child: Text(_statusLabel(locale, status),
+                  style: const TextStyle(
+                      fontSize: 19, fontWeight: FontWeight.w700)),
+            ),
             const SizedBox(height: 5),
             Text(_statusExplanation(locale, status),
                 style: const TextStyle(color: _muted, height: 1.4)),
+            if (tracking) ...[
+              const SizedBox(height: 14),
+              _StatusTimeline(
+                locale: locale,
+                status: status,
+                fulfillment: fulfillment ?? 'pickup',
+              ),
+              if (updatedAt != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  '${_copy(locale, 'statusUpdated')}: ${_formatTrackingTime(updatedAt!, locale)}',
+                  style: const TextStyle(color: _muted, fontSize: 11),
+                ),
+              ],
+            ],
             const Divider(height: 28),
             for (final line in lines)
               Padding(
@@ -1512,6 +1699,137 @@ class _ResultCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+String _formatTrackingTime(String value, String locale) {
+  final date = DateTime.tryParse(value)?.toLocal();
+  if (date == null) return value;
+  const ptMonths = [
+    'jan',
+    'fev',
+    'mar',
+    'abr',
+    'mai',
+    'jun',
+    'jul',
+    'ago',
+    'set',
+    'out',
+    'nov',
+    'dez'
+  ];
+  const enMonths = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec'
+  ];
+  final dateText = locale == 'pt-BR'
+      ? '${date.day} de ${ptMonths[date.month - 1]} de ${date.year}'
+      : '${enMonths[date.month - 1]} ${date.day}, ${date.year}';
+  if (locale == 'pt-BR') {
+    final time =
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    return '$dateText às $time';
+  }
+  final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+  final time =
+      '$hour:${date.minute.toString().padLeft(2, '0')} ${date.hour < 12 ? 'AM' : 'PM'}';
+  return '$dateText at $time';
+}
+
+class _StatusTimeline extends StatelessWidget {
+  const _StatusTimeline({
+    required this.locale,
+    required this.status,
+    required this.fulfillment,
+  });
+
+  final String locale;
+  final String status;
+  final String fulfillment;
+
+  @override
+  Widget build(BuildContext context) {
+    final isPortuguese = locale == 'pt-BR';
+    if (status == 'cancelled') {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(color: _orange.withValues(alpha: .45)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          '${_statusLabel(locale, status)} · ${isPortuguese ? 'status terminal demonstrativo' : 'terminal demo status'}',
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      );
+    }
+    const common = ['received', 'confirmed', 'preparing'];
+    final path = [
+      ...common,
+      fulfillment == 'delivery' ? 'out_for_delivery' : 'ready_for_pickup',
+      'completed',
+    ];
+    final current = path.indexOf(status);
+    if (current < 0) {
+      return Text(_copy(locale, 'unknownStatus'),
+          style: const TextStyle(color: _orange));
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(_copy(locale, 'timeline'),
+            style: const TextStyle(color: _muted, fontSize: 12)),
+        const SizedBox(height: 10),
+        for (var index = 0; index < path.length; index++)
+          Semantics(
+            label:
+                '${_statusLabel(locale, path[index])}${index == current ? ', ${_copy(locale, 'status')}' : ''}',
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: Row(
+                children: [
+                  Icon(
+                    index < current
+                        ? Icons.check_circle
+                        : index == current
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                    size: 17,
+                    color: index <= current ? _orange : _muted,
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      _statusLabel(locale, path[index]),
+                      style: TextStyle(
+                        color: index == current ? _text : _muted,
+                        fontWeight: index == current
+                            ? FontWeight.w700
+                            : FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                  if (index == current)
+                    Text(_copy(locale, 'status'),
+                        style: const TextStyle(color: _orange, fontSize: 11)),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
