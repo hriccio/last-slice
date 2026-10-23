@@ -1444,13 +1444,11 @@ class _TrackingScreenState extends State<TrackingScreen>
 
   void _startPolling() {
     _stopPolling();
-    if (!_routeVisible ||
-        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
-      return;
-    }
+    if (!_routeVisible) return;
     _polling = Timer.periodic(const Duration(seconds: 15), (_) {
+      final lifecycle = WidgetsBinding.instance.lifecycleState;
       if (_routeVisible &&
-          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+          (lifecycle == null || lifecycle == AppLifecycleState.resumed)) {
         _lookup(silent: true);
       }
     });
