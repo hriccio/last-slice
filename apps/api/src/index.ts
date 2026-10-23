@@ -1,5 +1,5 @@
 import {createServer} from 'node:http';
-import {randomBytes} from 'node:crypto';
+import {createHash,randomBytes,timingSafeEqual} from 'node:crypto';
 import {Buffer} from 'node:buffer';
 import {createClient} from '@supabase/supabase-js';
 import {calculate,extras,flavors,isLocale,locales,sizes,crustSurcharge,deliveryFee,type OrderRequest,type Status} from '@last-slice/contracts';
@@ -7,7 +7,7 @@ const port=Number(process.env.PORT||3001);
 const supabaseUrl=process.env.SUPABASE_URL, supabaseKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
 const db=supabaseUrl&&supabaseKey?createClient(supabaseUrl,supabaseKey):null;
 const memoryOrders=new Map<string,any>(), idempotency=new Map<string,{payload:string;order:any}>();
-const send=(res:any,status:number,data:any)=>{res.writeHead(status,{'content-type':'application/json','access-control-allow-origin':'*','access-control-allow-headers':'content-type,idempotency-key','access-control-allow-methods':'GET,POST,OPTIONS'});res.end(JSON.stringify(data));};
+const send=(res:any,status:number,data:any)=>{res.writeHead(status,{'content-type':'application/json','access-control-allow-origin':'*','access-control-allow-headers':'content-type,idempotency-key,authorization','access-control-allow-methods':'GET,POST,PATCH,OPTIONS'});res.end(JSON.stringify(data));};
 const safeError=(code:string,status=400,fieldErrors?:Record<string,string>)=>({status,body:{error:{code,messageKey:`errors.${code}`,...(fieldErrors?{fieldErrors}:{})}}});
 async function body(req:any){let raw='';for await(const chunk of req)raw+=chunk;return JSON.parse(raw||'{}')}
 const assistantMaxBytes=24_000, assistantMaxMessage=1_200, assistantMaxHistory=10, assistantTimeoutMs=8_000;
@@ -57,10 +57,81 @@ async function assistantMenu(locale:'pt-BR'|'en-US'){
 }
 function validPhone(phone:string){return /^\d{10,11}$/.test(phone.replace(/\D/g,''))}
 function statusKey(status:Status){return `status.${status}`}
+const orderStatuses:Status[]=['received','confirmed','preparing','ready_for_pickup','out_for_delivery','completed','cancelled'];
+const activeOrderStatuses:Status[]=['received','confirmed','preparing','ready_for_pickup','out_for_delivery'];
+function nextOrderStatus(status:Status,fulfillment:'pickup'|'delivery'):Status|null{
+ if(status==='received')return 'confirmed';
+ if(status==='confirmed')return 'preparing';
+ if(status==='preparing')return fulfillment==='pickup'?'ready_for_pickup':'out_for_delivery';
+ if(status==='ready_for_pickup'||status==='out_for_delivery')return 'completed';
+ return null;
+}
+function kitchenOrder(order:any,orderCode?:string,createdAt?:string,status?:Status){
+ const data=order?.order_data??order;
+ const lines=Array.isArray(data?.lines)?data.lines.map((line:any)=>({flavorId:line.flavorId,sizeId:line.sizeId,crustId:line.crustId,removedIngredientIds:line.removedIngredientIds,extraToppingIds:line.extraToppingIds,quantity:line.quantity,unitPrice:line.unitPrice,lineTotal:line.lineTotal})):[];
+ return {orderCode:orderCode??data?.orderCode,createdAt:createdAt??data?.createdAt,locale:data?.locale,fulfillment:data?.fulfillment,status:status??order?.status??data?.status,lines,subtotal:data?.subtotal,deliveryFee:data?.deliveryFee,total:data?.total};
+}
+function kitchenAuthorized(req:any){
+ const expected=process.env.KITCHEN_BOARD_TOKEN;
+ if(!expected)return 'unavailable';
+ const authorization=typeof req.headers.authorization==='string'?req.headers.authorization:'';
+ const match=authorization.match(/^Bearer\s+(.+)$/i);
+ const supplied=match?.[1]??'';
+ const expectedDigest=createHash('sha256').update(expected).digest(),suppliedDigest=createHash('sha256').update(supplied).digest();
+ return timingSafeEqual(expectedDigest,suppliedDigest)?'ok':'unauthorized';
+}
 const server=createServer(async(req,res)=>{
- if(req.method==='OPTIONS'){res.writeHead(204,{'access-control-allow-origin':'*','access-control-allow-headers':'content-type,idempotency-key','access-control-allow-methods':'GET,POST,OPTIONS'});return res.end();}
+ if(req.method==='OPTIONS'){res.writeHead(204,{'access-control-allow-origin':'*','access-control-allow-headers':'content-type,idempotency-key,authorization','access-control-allow-methods':'GET,POST,PATCH,OPTIONS'});return res.end();}
  const url=new URL(req.url||'/',`http://${req.headers.host||'localhost'}`);
  if(req.method==='GET'&&url.pathname==='/health')return send(res,200,{ok:true});
+ if(url.pathname.startsWith('/kitchen/')){
+  const access=kitchenAuthorized(req);
+  if(access==='unavailable')return send(res,503,safeError('kitchen_unavailable',503).body);
+  if(access!=='ok')return send(res,401,safeError('kitchen_unauthorized',401).body);
+ }
+ if(req.method==='GET'&&url.pathname==='/kitchen/orders'){
+  const filter=url.searchParams.get('status');
+  if(filter&&!orderStatuses.includes(filter as Status))return send(res,400,safeError('validation_error',400,{status:'validation.status'}).body);
+  let rows:any[]=[];
+  if(db){
+   let query=db.from('demo_orders').select('order_code,created_at,status,order_data').order('created_at',{ascending:false}).limit(100);
+   if(filter)query=query.eq('status',filter);
+   const result=await query;if(result.error)return send(res,500,safeError('kitchen_unavailable',500).body);rows=result.data||[];
+  }else{
+   rows=[...memoryOrders.values()].map(order=>({order_code:order.orderCode,created_at:order.createdAt,status:order.status,order_data:order}));
+   if(filter)rows=rows.filter(row=>row.status===filter);
+  }
+  const orders=rows.map(row=>kitchenOrder(row.order_data,row.order_code,row.created_at,row.status));
+  orders.sort((a,b)=>Number(activeOrderStatuses.includes(b.status))-Number(activeOrderStatuses.includes(a.status))||Date.parse(b.createdAt)-Date.parse(a.createdAt));
+  return send(res,200,{orders,persistence:db?'supabase':'memory'});
+ }
+ const kitchenStatusMatch=url.pathname.match(/^\/kitchen\/orders\/([A-Z0-9-]+)\/status$/);
+ if(req.method==='PATCH'&&kitchenStatusMatch){
+  let input:any;try{input=await boundedBody(req,2_048)}catch{return send(res,400,safeError('validation_error').body)}
+  if(!input||typeof input!=='object'||Array.isArray(input))return send(res,400,safeError('validation_error').body);
+  const code=kitchenStatusMatch[1];let order:any,createdAt:string|undefined,currentStatus:Status|undefined;
+  if(db){
+   const result=await db.from('demo_orders').select('order_code,created_at,status,order_data').eq('order_code',code).maybeSingle();
+   if(result.error)return send(res,500,safeError('kitchen_unavailable',500).body);
+   if(!result.data)return send(res,404,safeError('order_not_found',404).body);
+   order=result.data.order_data;createdAt=result.data.created_at;currentStatus=result.data.status as Status;
+  }else{
+   order=memoryOrders.get(code);if(!order)return send(res,404,safeError('order_not_found',404).body);currentStatus=order.status;
+  }
+  if(!orderStatuses.includes(input.expectedStatus)||!orderStatuses.includes(input.status))return send(res,400,safeError('invalid_status_transition',400).body);
+  if(input.expectedStatus!==currentStatus)return send(res,409,safeError('order_status_conflict',409).body);
+  if(nextOrderStatus(currentStatus!,order.fulfillment)!==input.status)return send(res,400,safeError('invalid_status_transition',400).body);
+  const timestamp=new Date().toISOString();
+  if(db){
+   const update=await db.from('demo_orders').update({status:input.status,updated_at:timestamp,order_data:{...order,status:input.status,statusKey:statusKey(input.status),updatedAt:timestamp}}).eq('order_code',code).eq('status',currentStatus).select('order_code,created_at,status,order_data').maybeSingle();
+   if(update.error)return send(res,500,safeError('kitchen_unavailable',500).body);
+   if(!update.data)return send(res,409,safeError('order_status_conflict',409).body);
+   order=update.data.order_data;createdAt=update.data.created_at;currentStatus=update.data.status as Status;
+  }
+  const cached=memoryOrders.get(code);if(cached){cached.status=input.status;cached.statusKey=statusKey(input.status);cached.updatedAt=timestamp;}
+  if(!db){order.status=input.status;order.statusKey=statusKey(input.status);order.updatedAt=timestamp;}
+  return send(res,200,{order:kitchenOrder(order,code,createdAt,currentStatus)});
+ }
  if(req.method==='POST'&&url.pathname==='/assistant/messages'){
   let input:any;try{input=await boundedBody(req,assistantMaxBytes)}catch(error){return send(res,400,safeError(error instanceof Error&&error.message==='body_too_large'?'assistant_request_too_large':'validation_error').body)}
   const fields:Record<string,string>={};
@@ -131,7 +202,7 @@ const server=createServer(async(req,res)=>{
   if(db){const {error}=await db.from('demo_orders').insert({order_code:code,idempotency_key:key,payload,order_data:order});if(error){if(error.code==='23505'){const {data}=await db.from('demo_orders').select('payload,order_data').eq('idempotency_key',key).single();if(data){if(data.payload!==payload)return send(res,409,safeError('idempotency_conflict',409).body);return send(res,200,data.order_data);}}return send(res,500,safeError('order_persistence_failed',500).body);}}
   memoryOrders.set(code,order);idempotency.set(key,{payload,order});return send(res,201,order);
  }
- const match=url.pathname.match(/^\/orders\/([A-Z0-9-]+)$/);if(req.method==='GET'&&match){let order=memoryOrders.get(match[1]);if(!order&&db){const {data}=await db.from('demo_orders').select('order_data').eq('order_code',match[1]).maybeSingle();order=data?.order_data;}if(!order)return send(res,404,safeError('order_not_found',404).body);return send(res,200,{orderCode:order.orderCode,createdAt:order.createdAt,status:order.status,statusKey:statusKey(order.status),fulfillment:order.fulfillment,lines:order.lines,subtotal:order.subtotal,deliveryFee:order.deliveryFee,total:order.total,demoOnly:true});}
+ const match=url.pathname.match(/^\/orders\/([A-Z0-9-]+)$/);if(req.method==='GET'&&match){let order:any;if(db){const {data,error}=await db.from('demo_orders').select('order_data,status').eq('order_code',match[1]).maybeSingle();if(error)return send(res,500,safeError('order_lookup_failed',500).body);order=data?{...data.order_data,status:data.status}:undefined;}else order=memoryOrders.get(match[1]);if(!order)return send(res,404,safeError('order_not_found',404).body);return send(res,200,{orderCode:order.orderCode,createdAt:order.createdAt,status:order.status,statusKey:statusKey(order.status),fulfillment:order.fulfillment,lines:order.lines,subtotal:order.subtotal,deliveryFee:order.deliveryFee,total:order.total,demoOnly:true});}
  return send(res,404,{error:{code:'not_found',messageKey:'errors.not_found'}});
 });
 server.listen(port,()=>console.log(`Last Slice API listening on http://localhost:${port}${db?' (Supabase)':' (memory demo)'}`));

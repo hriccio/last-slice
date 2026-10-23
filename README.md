@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-This starts the API at `http://localhost:3001` and web app at `http://localhost:5173`. Without Supabase credentials, the API keeps demo orders in memory for local preview. For persisted demo orders, create a Supabase project, apply `supabase/migrations/202610220001_demo_ordering.sql`, then start the API with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` set in the environment. Keep the service role key private. The API may be pointed at a different URL with `VITE_API_URL` when building the web client.
+This starts the API at `http://localhost:3001` and web app at `http://localhost:5173`. Without Supabase credentials, the API keeps demo orders in memory for local preview. For persisted demo orders, create a Supabase project, apply `supabase/migrations/202610220001_demo_ordering.sql` and then `supabase/migrations/202610220002_kitchen_order_status.sql`, then start the API with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` set in the environment. Keep the service role key private. The API may be pointed at a different URL with `VITE_API_URL` when building the web client.
 
 ## Build
 
@@ -77,6 +77,16 @@ The APK is written to `apps/mobile/build/app/outputs/flutter-apk/app-debug.apk`.
 - `specs/`: product contracts and feature specifications
 
 The API does not return customer contact or address data from order tracking. No payment credentials are collected.
+
+### Demo kitchen board
+
+The operator board is available at `http://localhost:5173/kitchen`. It requires a server-side demo token; start the dev stack with a token of your choice:
+
+```sh
+KITCHEN_BOARD_TOKEN=choose-a-local-demo-token npm run dev
+```
+
+Enter the same token in the board. It is held in browser memory only and is cleared when the page reloads or the operator signs out. Do not expose a publicly reachable demo board with a shared token or use this access method for real restaurant operations. With Supabase configured, status changes persist across API restarts; without it, orders and status changes exist only for the API process lifetime.
 
 ## Contextual assistant
 

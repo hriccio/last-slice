@@ -1,6 +1,6 @@
 # 006 — Demo kitchen order board
 
-**Status:** Proposed for review
+**Status:** Implemented; build-validated, interactive acceptance pending
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [001 — Web demo ordering journey](../001-web-demo-ordering/spec.md)
 
 ## Outcome
