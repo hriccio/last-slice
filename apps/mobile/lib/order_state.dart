@@ -19,6 +19,10 @@ class OrderState extends ChangeNotifier {
   bool menuLoading = true;
   bool quoteLoading = false;
   bool submitting = false;
+  bool assistantLoading = false;
+  String? assistantError;
+  String assistantMode = 'provider';
+  final List<Json> assistantMessages = [];
   String? menuError;
   String? quoteError;
   String? _idempotencyKey;
@@ -176,6 +180,46 @@ class OrderState extends ChangeNotifier {
 
   Future<Json> track(String orderCode) =>
       api.get('/orders/${Uri.encodeComponent(orderCode.trim().toUpperCase())}');
+
+  Future<bool> sendAssistantMessage(String message, Json context) async {
+    final text = message.trim();
+    if (text.isEmpty || assistantLoading) return false;
+    final history = assistantMessages
+        .skip(assistantMessages.length > 10 ? assistantMessages.length - 10 : 0)
+        .map((item) => {'role': item['role'], 'content': item['content']})
+        .toList();
+    assistantMessages.add({'role': 'user', 'content': text});
+    if (assistantMessages.length > 20) assistantMessages.removeAt(0);
+    assistantLoading = true;
+    assistantError = null;
+    notifyListeners();
+    try {
+      final response = await api.post('/assistant/messages', {
+        'locale': locale,
+        'message': text,
+        'history': history,
+        'context': context,
+      });
+      assistantMessages
+          .add({'role': 'assistant', 'content': '${response['reply'] ?? ''}'});
+      assistantMode = '${response['mode'] ?? 'provider'}';
+      if (assistantMessages.length > 20) assistantMessages.removeAt(0);
+      return true;
+    } catch (_) {
+      assistantError = 'assistant_unavailable';
+      return false;
+    } finally {
+      assistantLoading = false;
+      notifyListeners();
+    }
+  }
+
+  void clearAssistantConversation() {
+    assistantMessages.clear();
+    assistantError = null;
+    assistantMode = 'provider';
+    notifyListeners();
+  }
 
   String _newIdempotencyKey() {
     final random = Random.secure();

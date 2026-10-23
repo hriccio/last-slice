@@ -77,3 +77,19 @@ The APK is written to `apps/mobile/build/app/outputs/flutter-apk/app-debug.apk`.
 - `specs/`: product contracts and feature specifications
 
 The API does not return customer contact or address data from order tracking. No payment credentials are collected.
+
+## Contextual assistant
+
+The optional assistant is available from menu browsing, customization, cart, and checkout in the React and Flutter clients. It only provides information; customers make and review all selections in the ordering controls. Assistant conversation text is not persisted or written to order records.
+
+Local API development uses a deterministic fake assistant by default. The interface identifies these responses as a development preview and does not need provider credentials. To connect a server-side provider adapter, configure the API process with an OpenAI-compatible chat completions endpoint and runtime secrets:
+
+```sh
+ASSISTANT_PROVIDER=openai-compatible \
+ASSISTANT_API_URL=https://provider.example/v1/chat/completions \
+ASSISTANT_API_KEY=replace-with-server-only-key \
+ASSISTANT_MODEL=replace-with-model-id \
+npm run dev:api
+```
+
+Never place these settings in the web or Flutter client configuration. The endpoint accepts at most 24 KB per request, 1,200 UTF-8 bytes per message, and 10 history messages; provider calls time out after 8 seconds and replies are limited to 4 KB. It excludes checkout contact and delivery fields from provider context and scrubs common personal-detail patterns from message history. Before enabling an external provider, review its data processing and retention settings. In production, configure a supported provider explicitly; the API returns a recoverable unavailable response if no provider is configured.
