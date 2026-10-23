@@ -1,6 +1,6 @@
 # 004 — Flutter Android emulator proof
 
-**Status:** Approved for implementation
+**Status:** Implemented and verified
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [002 — Flutter cross-platform demo ordering](../002-mobile-demo-ordering/spec.md), [003 — Flutter Web PWA customer client](../003-flutter-web-pwa/spec.md)
 
 ## Outcome
@@ -51,17 +51,17 @@ An API failure must show the existing localized recovery state and preserve the 
 
 ## Acceptance criteria
 
-- [ ] Flutter's Android runner is checked in with no generated build output or machine-specific SDK paths.
-- [ ] A debug APK builds with the repository's documented Flutter setup.
-- [ ] The debug app installs and launches on an Android emulator.
-- [ ] The Android app fetches the menu from the local API using the emulator-reachable API origin.
-- [ ] A developer can complete browse → customize → quote → checkout → demo confirmation on the emulator.
-- [ ] The Android client displays API-calculated prices and does not duplicate menu or pricing rules.
-- [ ] The customer flow supports both `pt-BR` and `en-US` and retains locale and in-progress cart/form state while moving through the journey.
-- [ ] The demo-only notice appears before submission and on confirmation; the app does not collect payment credentials or imply real fulfillment.
-- [ ] API failures preserve work and show localized recovery guidance.
-- [ ] Debug-only local HTTP configuration does not permit cleartext API traffic in release builds; production configuration uses HTTPS.
-- [ ] README instructions explain how to start the API, select an emulator, run the app, and build the debug APK.
+- [x] Flutter's Android runner is checked in with no generated build output or machine-specific SDK paths.
+- [x] A debug APK builds with the repository's documented Flutter setup.
+- [x] The debug app installs and launches on an Android emulator.
+- [x] The Android app fetches the menu from the local API using the emulator-reachable API origin.
+- [x] A developer can complete browse → customize → quote → checkout → demo confirmation on the emulator.
+- [x] The Android client displays API-calculated prices and does not duplicate menu or pricing rules.
+- [x] The customer flow supports both `pt-BR` and `en-US` and retains locale and in-progress cart/form state while moving through the journey.
+- [x] The demo-only notice appears before submission and on confirmation; the app does not collect payment credentials or imply real fulfillment.
+- [x] API failures preserve work and show localized recovery guidance.
+- [x] Debug-only local HTTP configuration does not permit cleartext API traffic in release builds; production configuration uses HTTPS.
+- [x] README instructions explain how to start the API, select an emulator, run the app, and build the debug APK.
 
 ## Decisions fixed by this spec
 
