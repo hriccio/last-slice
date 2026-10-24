@@ -11,9 +11,13 @@
     "dev:web": "npm --workspace @last-slice/web run dev",
     "build": "npm --workspace @last-slice/contracts run build && npm --workspace @last-slice/api run build && npm --workspace @last-slice/web run build",
     "test:tracking": "npm run test:tracking:api && playwright test",
-    "test:tracking:api": "node --import tsx --test tests/order-tracking.api.test.ts"
+    "test:tracking:api": "node --import tsx --test tests/order-tracking.api.test.ts",
+    "dev:api:ai": "python3 scripts/run-api-with-vault.py",
+    "dev:ai": "concurrently -k -n api,web -c yellow,cyan \"npm:dev:api:ai\" \"npm:dev:web\"",
+    "test:api": "node --import tsx --test tests/*.test.ts"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.11",
     "@playwright/test": "^1.64.1",
     "concurrently": "^9.1.2",
     "typescript": "^5.7.3"

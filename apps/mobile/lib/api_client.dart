@@ -6,10 +6,11 @@ import 'api_origin.dart' as platform;
 import 'models.dart';
 
 class ApiException implements Exception {
-  const ApiException(this.messageKey, this.statusCode);
+  const ApiException(this.messageKey, this.statusCode, {this.resetsAt});
 
   final String messageKey;
   final int statusCode;
+  final String? resetsAt;
 
   @override
   String toString() => messageKey;
@@ -38,13 +39,29 @@ class ApiClient {
         ),
       );
 
+  Future<Json> assistantRequest(String method, String path,
+      {required String capability, Json? payload}) async {
+    final request = http.Request(method, Uri.parse('$baseUrl$path'));
+    request.headers.addAll({
+      'content-type': 'application/json',
+      'authorization': 'Bearer $capability'
+    });
+    if (payload != null) request.body = jsonEncode(payload);
+    return _read(await http.Response.fromStream(await _client.send(request))
+        .timeout(const Duration(seconds: 12)));
+  }
+
   Json _read(http.Response response) {
-    final decoded = response.body.isEmpty ? <String, dynamic>{} : jsonDecode(response.body);
+    final decoded =
+        response.body.isEmpty ? <String, dynamic>{} : jsonDecode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final error = decoded is Map ? decoded['error'] : null;
       throw ApiException(
-        error is Map ? '${error['code'] ?? 'request_failed'}' : 'request_failed',
+        error is Map
+            ? '${error['code'] ?? 'request_failed'}'
+            : 'request_failed',
         response.statusCode,
+        resetsAt: decoded is Map ? decoded['resetsAt'] as String? : null,
       );
     }
     if (decoded is! Map<String, dynamic>) {

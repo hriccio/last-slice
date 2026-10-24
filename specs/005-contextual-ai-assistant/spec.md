@@ -1,6 +1,6 @@
 # 005 — Contextual AI ordering assistant
 
-**Status:** GPT-5 nano model accepted; natural conversation, vault access, and $1/day budget queue specified; implementation acceptance pending
+**Status:** Provider, vault launch, budget ledger, queue, and both clients implemented; release acceptance continues with Spec 006
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [001 — Web demo ordering journey](../001-web-demo-ordering/spec.md), [002 — Flutter cross-platform demo ordering](../002-mobile-demo-ordering/spec.md), [003 — Flutter Web PWA customer client](../003-flutter-web-pwa/spec.md)
 
 ## Outcome
@@ -67,6 +67,8 @@ The user selected a **US$1.00 per UTC day** application model-token budget. Use 
 The worst-case scenario (WCS) reserves **US$0.00052 per provider attempt**: at most 4,000 input tokens at US$0.05 per million and 800 generated tokens at US$0.40 per million. Count all system instructions, menu/quote context, history, current message, and provider message framing against the input limit; generated-token accounting includes reasoning. Do not base admission on the much smaller average cost of the live probe.
 
 The detailed [queue and budget contract](queue-budget.md) fixes admission/cancellation, idempotency, reservation/settlement, truthful timing feedback, privacy, errors, and deterministic validation. The API and both clients must implement it together. Pacing alone is insufficient: a shared atomic budget ledger must refuse dispatch when another WCS reservation would exceed the daily cap, including after a restart or with concurrent API processes.
+
+Implementation evidence is recorded in [validation](validation.md). Queue content is volatile and belongs to the API process that accepted it; the initial demo uses one API process. The durable Supabase ledger still serializes budget/slot claims from overlapping API processes. Multiple replicas would additionally require request affinity for volatile ticket/reply retrieval; lost content expires safely and is never replayed as paid work.
 
 ## Assistant behavior and grounding
 

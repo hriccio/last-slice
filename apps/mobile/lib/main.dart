@@ -166,6 +166,14 @@ String _copy(String locale, String key) {
       'assistantHint': 'Pergunte sobre sabores ou ingredientes',
       'assistantSend': 'Enviar mensagem',
       'assistantEmpty': 'Como posso ajudar com o cardápio?',
+      'assistantQueued': 'Aguardando disponibilidade da IA',
+      'assistantPosition': 'Posição na fila',
+      'assistantEstimate': 'Resposta estimada em cerca de',
+      'assistantAverage': 'Tempo médio recente para responder',
+      'assistantNoAverage': 'Estimativa inicial · Ainda sem média recente',
+      'assistantCancel': 'Sair da fila',
+      'assistantStale':
+          'Resposta referente à seleção anterior. Confira o orçamento atual.',
       'assistantBusy': 'Pensando…',
       'assistantError':
           'A ajuda está indisponível agora. Seu pedido continua como estava.',
@@ -257,6 +265,14 @@ String _copy(String locale, String key) {
       'assistantHint': 'Ask about flavors or ingredients',
       'assistantSend': 'Send message',
       'assistantEmpty': 'How can I help with the menu?',
+      'assistantQueued': 'Waiting for AI availability',
+      'assistantPosition': 'Queue position',
+      'assistantEstimate': 'Estimated reply in about',
+      'assistantAverage': 'Recent average time to answer',
+      'assistantNoAverage': 'Initial estimate · No recent average yet',
+      'assistantCancel': 'Leave queue',
+      'assistantStale':
+          'Answer for the earlier selection. Check the current quote.',
       'assistantBusy': 'Thinking…',
       'assistantError':
           'Help is unavailable right now. Your order is unchanged.',
@@ -2126,15 +2142,41 @@ class _AssistantButton extends StatelessWidget {
   Widget build(BuildContext context) => IconButton(
         tooltip: _copy(state.locale, 'assistantOpen'),
         icon: const Icon(Icons.chat_bubble_outline),
-        onPressed: () => showModalBottomSheet<void>(
+        onPressed: () => showBottomSheet(
           context: context,
-          isScrollControlled: true,
           backgroundColor: _surface,
-          useSafeArea: true,
-          builder: (_) =>
-              _AssistantSheet(state: state, contextData: contextData),
+          builder: (_) => SizedBox(
+              height: MediaQuery.sizeOf(context).height * .48,
+              child: _AssistantSheet(state: state, contextData: contextData)),
         ),
       );
+}
+
+String _assistantDuration(int seconds) => seconds < 60
+    ? '${((seconds + 4) ~/ 5) * 5} s'
+    : '${(seconds + 59) ~/ 60} min';
+String _assistantErrorText(OrderState state, String locale) {
+  final pt = locale == 'pt-BR';
+  switch (state.assistantError) {
+    case 'assistant_queue_full':
+      return pt
+          ? 'A fila está cheia. Tente novamente em instantes.'
+          : 'The queue is full. Try again shortly.';
+    case 'assistant_budget_exhausted':
+      return '${pt ? 'Limite diário da IA atingido. Disponível novamente em' : 'Daily AI limit reached. Available again at'} ${state.assistantResetsAt == null ? 'UTC' : _formatTrackingTime(state.assistantResetsAt!, locale)}';
+    case 'assistant_request_expired':
+      return pt
+          ? 'Sua espera expirou. Envie novamente quando quiser.'
+          : 'Your wait expired. Send again whenever you like.';
+    case 'assistant_already_pending':
+      return pt
+          ? 'Sua conversa já tem uma mensagem aguardando.'
+          : 'Your conversation already has a message waiting.';
+    case 'assistant_input_too_large':
+      return pt ? 'Tente uma pergunta mais curta.' : 'Try a shorter question.';
+    default:
+      return _copy(locale, 'assistantError');
+  }
 }
 
 class _AssistantSheet extends StatefulWidget {
@@ -2146,12 +2188,46 @@ class _AssistantSheet extends StatefulWidget {
   State<_AssistantSheet> createState() => _AssistantSheetState();
 }
 
-class _AssistantSheetState extends State<_AssistantSheet> {
+class _AssistantSheetState extends State<_AssistantSheet>
+    with WidgetsBindingObserver, RouteAware {
+  PageRoute<dynamic>? assistantRoute;
   final controller = TextEditingController();
   final scrollController = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    widget.state.assistantContextChanged(widget.contextData);
+    widget.state.assistantSetVisible(true);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    widget.state.assistantSetForeground(state == AppLifecycleState.resumed);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final current = ModalRoute.of(context);
+    if (current is PageRoute<dynamic> && current != assistantRoute) {
+      _routeObserver.unsubscribe(this);
+      assistantRoute = current;
+      _routeObserver.subscribe(this, current);
+    }
+  }
+
+  @override
+  void didPushNext() => widget.state.assistantSetForeground(false);
+  @override
+  void didPopNext() => widget.state.assistantSetForeground(true);
+
+  @override
   void dispose() {
+    _routeObserver.unsubscribe(this);
+    WidgetsBinding.instance.removeObserver(this);
+    widget.state.assistantSetVisible(false);
     controller.dispose();
     scrollController.dispose();
     super.dispose();
@@ -2175,117 +2251,120 @@ class _AssistantSheetState extends State<_AssistantSheet> {
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: widget.state,
         builder: (context, _) {
-          final state = widget.state;
-          final locale = state.locale;
-          return FractionallySizedBox(
-            heightFactor: .82,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 12, 8, 12),
-                  child: Row(children: [
+          final state = widget.state, locale = state.locale;
+          if (!state.assistantLoading &&
+              controller.text.isEmpty &&
+              state.assistantDraft.isNotEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && controller.text.isEmpty)
+                controller.text = state.assistantDraft;
+            });
+          }
+          return Column(children: [
+            Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                child: Row(children: [
+                  Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                        Text(_copy(locale, 'assistantTitle'),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 16)),
+                        Text(
+                            locale == 'pt-BR'
+                                ? 'Não envie dados pessoais.'
+                                : 'Do not share personal details.',
+                            style:
+                                const TextStyle(color: _muted, fontSize: 11)),
+                      ])),
+                  IconButton(
+                      tooltip: _copy(locale, 'assistantNew'),
+                      onPressed: state.clearAssistantConversation,
+                      icon: const Icon(Icons.refresh)),
+                  IconButton(
+                      tooltip: locale == 'pt-BR' ? 'Fechar' : 'Close',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close)),
+                ])),
+            const Divider(height: 1, color: _surfaceLight),
+            Expanded(
+                child: ListView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.all(12),
+                    children: [
+                  if (state.assistantMessages.isEmpty)
+                    Text(_copy(locale, 'assistantEmpty'),
+                        style: const TextStyle(color: _muted)),
+                  for (final message in state.assistantMessages)
+                    _assistantBubble('${message['content'] ?? ''}',
+                        message['role'] == 'user'),
+                  if (state.assistantLoading)
+                    Semantics(
+                        liveRegion: true,
+                        child: Text(_copy(
+                            locale,
+                            state.assistantTicket?['state'] == 'queued'
+                                ? 'assistantQueued'
+                                : 'assistantBusy'))),
+                  if (state.assistantTicket case final ticket?) ...[
+                    Text(
+                        '${_copy(locale, 'assistantPosition')}: ${ticket['position'] ?? '—'} · ${_copy(locale, 'assistantEstimate')}: ${_assistantDuration((ticket['estimatedReplySeconds'] as num? ?? 8).toInt())}',
+                        style: const TextStyle(fontSize: 11)),
+                    Text(
+                        ticket['recentAverageReplySeconds'] != null
+                            ? '${_copy(locale, 'assistantAverage')}: ${_assistantDuration((ticket['recentAverageReplySeconds'] as num).toInt())}'
+                            : _copy(locale, 'assistantNoAverage'),
+                        style: const TextStyle(fontSize: 11)),
+                    if (ticket['state'] == 'queued')
+                      Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                              onPressed: () => state.cancelAssistant(),
+                              child: Text(_copy(locale, 'assistantCancel')))),
+                  ],
+                  if (state.assistantMode == 'development_fake')
+                    Text(_copy(locale, 'assistantFake'),
+                        style: const TextStyle(color: _orange, fontSize: 11)),
+                  if (state.assistantStale)
+                    Text(_copy(locale, 'assistantStale'),
+                        style: const TextStyle(fontSize: 11)),
+                  if (state.assistantError != null)
+                    Semantics(
+                        liveRegion: true,
+                        child: Text(_assistantErrorText(state, locale),
+                            style: const TextStyle(
+                                color: Color(0xFFFF9C80), fontSize: 11))),
+                ])),
+            Padding(
+                padding: const EdgeInsets.fromLTRB(12, 5, 12, 10),
+                child: Column(children: [
+                  Text(_copy(locale, 'assistantDisclaimer'),
+                      style: const TextStyle(color: _muted, fontSize: 10)),
+                  const SizedBox(height: 6),
+                  Row(children: [
                     Expanded(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                          Text(_copy(locale, 'assistantTitle'),
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700, fontSize: 17)),
-                          const SizedBox(height: 4),
-                          Text(_copy(locale, 'assistantIntro'),
-                              style:
-                                  const TextStyle(color: _muted, fontSize: 11)),
-                        ])),
-                    IconButton(
-                        tooltip: _copy(locale, 'assistantNew'),
-                        onPressed: state.assistantLoading
-                            ? null
-                            : state.clearAssistantConversation,
-                        icon: const Icon(Icons.refresh)),
-                    IconButton(
-                        tooltip: locale == 'pt-BR' ? 'Fechar' : 'Close',
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close)),
-                  ]),
-                ),
-                const Divider(height: 1, color: _surfaceLight),
-                Expanded(
-                  child: state.assistantMessages.isEmpty
-                      ? Center(
-                          child: Text(_copy(locale, 'assistantEmpty'),
-                              style: const TextStyle(color: _muted)))
-                      : ListView.builder(
-                          controller: scrollController,
-                          padding: const EdgeInsets.all(16),
-                          itemCount: state.assistantMessages.length +
-                              (state.assistantLoading ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (index == state.assistantMessages.length)
-                              return _assistantBubble(
-                                  _copy(locale, 'assistantBusy'), false);
-                            final message = state.assistantMessages[index];
-                            return _assistantBubble(
-                                '${message['content'] ?? ''}',
-                                message['role'] == 'user');
-                          },
-                        ),
-                ),
-                if (state.assistantMode == 'development_fake')
-                  Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 5),
-                      child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(_copy(locale, 'assistantFake'),
-                              style: const TextStyle(
-                                  color: _orange, fontSize: 10)))),
-                if (state.assistantError != null)
-                  Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 5),
-                      child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(_copy(locale, 'assistantError'),
-                              style: const TextStyle(
-                                  color: Color(0xFFFF9C80), fontSize: 11)))),
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                      14, 8, 14, 12 + MediaQuery.viewInsetsOf(context).bottom),
-                  child: Column(children: [
-                    Text(_copy(locale, 'assistantDisclaimer'),
-                        style: const TextStyle(color: _muted, fontSize: 10)),
-                    const SizedBox(height: 8),
-                    Row(children: [
-                      Expanded(
-                          child: TextField(
-                        controller: controller,
-                        maxLength: 1200,
-                        minLines: 1,
-                        maxLines: 3,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _send(),
-                        decoration: InputDecoration(
-                            labelText: _copy(locale, 'assistantHint'),
-                            counterText: ''),
-                      )),
-                      const SizedBox(width: 8),
-                      IconButton.filled(
+                        child: TextField(
+                            controller: controller,
+                            readOnly: state.assistantLoading,
+                            maxLength: 1200,
+                            minLines: 1,
+                            maxLines: 2,
+                            textInputAction: TextInputAction.send,
+                            onSubmitted: (_) => _send(),
+                            decoration: InputDecoration(
+                                labelText: _copy(locale, 'assistantHint'),
+                                counterText: ''))),
+                    const SizedBox(width: 6),
+                    IconButton.filled(
                         tooltip: _copy(locale, 'assistantSend'),
-                        onPressed: state.assistantLoading ? null : _send,
-                        icon: state.assistantLoading
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.send),
-                      ),
-                    ]),
+                        onPressed: _send,
+                        icon: Icon(state.assistantLoading
+                            ? Icons.hourglass_empty
+                            : Icons.send)),
                   ]),
-                ),
-              ],
-            ),
-          );
+                ])),
+          ]);
         },
       );
 

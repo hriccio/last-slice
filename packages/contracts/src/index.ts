@@ -54,3 +54,17 @@ export function calculate(lines:CartLine[], fulfillment:Fulfillment) {
   return {lines:priced,subtotal,deliveryFee:fee,total:subtotal+fee};
 }
 export function isLocale(value:unknown): value is Locale {return typeof value==='string'&&(locales as readonly string[]).includes(value)}
+
+export type AssistantState = 'queued'|'running'|'completed'|'cancelled'|'expired'|'failed';
+export interface AssistantTicket {
+  requestId:string; state:AssistantState; pollAfterSeconds:number;
+  position?:number; estimatedWaitSeconds?:number; estimatedReplySeconds?:number;
+  recentAverageReplySeconds?:number; estimateUpdatedAt?:string;
+  reply?:string; disclaimer?:true; mode?:'provider'|'development_fake';
+  error?:string; resetsAt?:string;
+}
+export interface AssistantTurn {role:'user'|'assistant';content:string}
+export interface AssistantContext {
+  screen:'menu'|'customization'|'cart'|'checkout'; selection?:CartLine;
+  cartLines?:CartLine[]; fulfillment?:Fulfillment;
+}

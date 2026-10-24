@@ -10,3 +10,4 @@
 @media(max-width:400px){.trackingStep{flex-wrap:wrap;gap:6px}.trackingStep small{margin-left:23px;flex-basis:100%;padding-bottom:6px}}
 .mobileTracking{display:none}@media(max-width:700px){.mobileTracking{display:grid;place-items:center;background:transparent;border:0;color:inherit;width:32px;min-height:40px;padding:0}.topActions{gap:10px}}
 .trackingRefresh[aria-disabled=true]{opacity:.6;cursor:wait}
+.assistantQueue{padding:8px 16px;color:#c9c0b7;font-size:12px;line-height:1.5;border-top:1px solid #39332d}.assistantQueue p{margin:4px 0}.assistantQueue button{padding:7px 12px;color:inherit;background:transparent;border:1px solid #746251}.assistantPanel form button[aria-disabled=true]{opacity:.55;cursor:wait}.assistantPanel>header>button{flex-shrink:0}

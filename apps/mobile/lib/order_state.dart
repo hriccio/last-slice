@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -23,6 +24,20 @@ class OrderState extends ChangeNotifier {
   String? assistantError;
   String assistantMode = 'provider';
   final List<Json> assistantMessages = [];
+  Json? assistantTicket;
+  String? assistantResetsAt;
+  String assistantDraft = '';
+  bool assistantStale = false;
+  int _selectionRevision = 0;
+  String? _assistantCapability;
+  Json? _assistantSubmission;
+  Timer? _assistantPolling;
+  bool _assistantVisible = false;
+  bool _assistantForeground = true;
+  bool _assistantPollingBusy = false;
+  int _assistantRevision = 0;
+  String _assistantContextKey = '';
+
   String? menuError;
   String? quoteError;
   String? _idempotencyKey;
@@ -64,6 +79,7 @@ class OrderState extends ChangeNotifier {
   }
 
   Future<PriceQuote?> quoteLines(List<CartLine> lines) async {
+    _selectionRevision++;
     try {
       final json = await api.post('/quotes', {
         'fulfillment': fulfillment,
@@ -76,6 +92,7 @@ class OrderState extends ChangeNotifier {
   }
 
   Future<void> refreshQuote() async {
+    _selectionRevision++;
     final revision = ++_quoteRevision;
     if (cart.isEmpty) {
       cartQuote = null;
@@ -181,44 +198,223 @@ class OrderState extends ChangeNotifier {
   Future<Json> track(String orderCode) =>
       api.get('/orders/${Uri.encodeComponent(orderCode.trim().toUpperCase())}');
 
+  String _capability() => _assistantCapability ??=
+      List.generate(32, (_) => Random.secure().nextInt(256))
+          .map((b) => b.toRadixString(16).padLeft(2, '0'))
+          .join();
+
+  void assistantSetVisible(bool visible) {
+    _assistantVisible = visible;
+    if (visible)
+      _scheduleAssistantPoll(immediate: true);
+    else {
+      _assistantPolling?.cancel();
+      if (assistantTicket?['state'] == 'queued') unawaited(cancelAssistant());
+    }
+  }
+
+  void assistantSetForeground(bool foreground) {
+    _assistantForeground = foreground;
+    _assistantPolling?.cancel();
+    if (foreground) _scheduleAssistantPoll(immediate: true);
+  }
+
+  void assistantContextChanged(Json context) {
+    _assistantContextKey = jsonEncode(context);
+  }
+
   Future<bool> sendAssistantMessage(String message, Json context) async {
     final text = message.trim();
     if (text.isEmpty || assistantLoading) return false;
-    final history = assistantMessages
-        .skip(assistantMessages.length > 10 ? assistantMessages.length - 10 : 0)
-        .map((item) => {'role': item['role'], 'content': item['content']})
-        .toList();
-    assistantMessages.add({'role': 'user', 'content': text});
-    if (assistantMessages.length > 20) assistantMessages.removeAt(0);
+    if (utf8.encode(text).length > 1200) {
+      assistantError = 'assistant_input_too_large';
+      notifyListeners();
+      return false;
+    }
+    assistantContextChanged(context);
+    final signature =
+        jsonEncode({'message': text, 'context': context, 'locale': locale});
+    if (_assistantSubmission?['signature'] != signature) {
+      final bytes = List<int>.generate(16, (_) => Random.secure().nextInt(256));
+      bytes[6] = (bytes[6] & 15) | 64;
+      bytes[8] = (bytes[8] & 63) | 128;
+      final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+      _assistantSubmission = {
+        'signature': signature,
+        'selectionRevision': _selectionRevision,
+        'contextKey': _assistantContextKey,
+        'payload': {
+          'requestId':
+              '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}',
+          'locale': locale,
+          'message': text,
+          'context': context,
+          'history': assistantMessages
+              .skip(max(0, assistantMessages.length - 10))
+              .map((m) => {'role': m['role'], 'content': m['content']})
+              .toList()
+        }
+      };
+    }
+    final revision = _assistantRevision;
     assistantLoading = true;
     assistantError = null;
+    assistantDraft = text;
+    assistantStale = false;
     notifyListeners();
     try {
-      final response = await api.post('/assistant/messages', {
-        'locale': locale,
-        'message': text,
-        'history': history,
-        'context': context,
-      });
-      assistantMessages
-          .add({'role': 'assistant', 'content': '${response['reply'] ?? ''}'});
-      assistantMode = '${response['mode'] ?? 'provider'}';
+      final response = await api.assistantRequest('POST', '/assistant/messages',
+          capability: _capability(),
+          payload: _assistantSubmission!['payload'] as Json);
+      if (revision != _assistantRevision) return false;
+      assistantMessages.add({'role': 'user', 'content': text});
       if (assistantMessages.length > 20) assistantMessages.removeAt(0);
+      if (response['state'] != null) {
+        assistantTicket = response;
+        _applyAssistantState(response);
+        if (!_assistantVisible && response['state'] == 'queued') {
+          unawaited(cancelAssistant());
+        } else {
+          _scheduleAssistantPoll();
+        }
+      } else {
+        _completeAssistant(response);
+      }
+      notifyListeners();
       return true;
-    } catch (_) {
-      assistantError = 'assistant_unavailable';
+    } catch (error) {
+      if (revision == _assistantRevision) {
+        assistantError =
+            error is ApiException ? error.messageKey : 'assistant_unavailable';
+        assistantResetsAt = error is ApiException ? error.resetsAt : null;
+        assistantLoading = false;
+        notifyListeners();
+      }
       return false;
-    } finally {
+    }
+  }
+
+  void _completeAssistant(Json response) {
+    assistantMessages
+        .add({'role': 'assistant', 'content': '${response['reply'] ?? ''}'});
+    if (assistantMessages.length > 20) assistantMessages.removeAt(0);
+    assistantMode = '${response['mode'] ?? 'provider'}';
+    assistantStale =
+        _assistantSubmission?['contextKey'] != _assistantContextKey ||
+            _assistantSubmission?['selectionRevision'] != _selectionRevision;
+    assistantTicket = null;
+    assistantLoading = false;
+    assistantDraft = '';
+    _assistantSubmission = null;
+  }
+
+  void _applyAssistantState(Json response) {
+    final status = response['state'];
+    if (status == 'completed')
+      _completeAssistant(response);
+    else if (['cancelled', 'expired', 'failed'].contains(status)) {
+      assistantError = status == 'cancelled'
+          ? null
+          : '${response['error'] ?? 'assistant_request_expired'}';
+      assistantResetsAt = response['resetsAt'] as String?;
       assistantLoading = false;
+      assistantTicket = null;
+      if (assistantMessages.isNotEmpty &&
+          assistantMessages.last['role'] == 'user')
+        assistantMessages.removeLast();
+      _assistantSubmission = null;
+    } else {
+      assistantTicket = response;
+    }
+  }
+
+  void _scheduleAssistantPoll({bool immediate = false}) {
+    _assistantPolling?.cancel();
+    if (!_assistantVisible || !_assistantForeground || assistantTicket == null)
+      return;
+    final seconds =
+        max(3, (assistantTicket!['pollAfterSeconds'] as num? ?? 3).toInt());
+    _assistantPolling = Timer(Duration(seconds: immediate ? 0 : seconds),
+        () => unawaited(_pollAssistant()));
+  }
+
+  Future<void> _pollAssistant() async {
+    if (_assistantPollingBusy ||
+        !_assistantVisible ||
+        !_assistantForeground ||
+        assistantTicket == null) return;
+    _assistantPollingBusy = true;
+    final revision = _assistantRevision;
+    final id = assistantTicket!['requestId'];
+    try {
+      final response = await api.assistantRequest(
+          'GET', '/assistant/requests/$id',
+          capability: _capability());
+      if (revision != _assistantRevision) return;
+      assistantError = null;
+      _applyAssistantState(response);
+      notifyListeners();
+    } catch (error) {
+      if (revision == _assistantRevision) {
+        assistantError =
+            error is ApiException ? error.messageKey : 'assistant_unavailable';
+        if (error is ApiException && error.statusCode == 410) {
+          _applyAssistantState(
+              {'state': 'expired', 'error': 'assistant_request_expired'});
+        }
+        notifyListeners();
+      }
+    } finally {
+      _assistantPollingBusy = false;
+      if (revision == _assistantRevision) _scheduleAssistantPoll();
+    }
+  }
+
+  Future<void> cancelAssistant() async {
+    final revision = _assistantRevision;
+    final ticket = assistantTicket;
+    if (ticket == null) return;
+    try {
+      final response = await api.assistantRequest(
+          'DELETE', '/assistant/requests/${ticket['requestId']}',
+          capability: _capability());
+      if (revision == _assistantRevision && assistantTicket?['requestId'] == ticket['requestId']) {
+        _applyAssistantState(response);
+        notifyListeners();
+      }
+    } catch (_) {
+      if(revision != _assistantRevision)return;
+      assistantError = 'assistant_unavailable';
       notifyListeners();
     }
   }
 
   void clearAssistantConversation() {
+    if (assistantTicket != null) {
+      unawaited(api
+          .assistantRequest(
+              'DELETE', '/assistant/requests/${assistantTicket!['requestId']}',
+              capability: _capability())
+          .catchError((_) => <String, dynamic>{}));
+    }
+    _assistantRevision++;
+    _assistantPolling?.cancel();
     assistantMessages.clear();
     assistantError = null;
     assistantMode = 'provider';
+    assistantTicket = null;
+    assistantLoading = false;
+    assistantDraft = '';
+    _assistantSubmission = null;
+    _assistantCapability = null;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _assistantRevision++;
+    _assistantPolling?.cancel();
+    super.dispose();
   }
 
   String _newIdempotencyKey() {
