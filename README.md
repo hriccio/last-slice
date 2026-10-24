@@ -88,6 +88,8 @@ KITCHEN_BOARD_TOKEN=choose-a-local-demo-token make dev
 
 Enter the same token in the board. It is held in browser memory only and is cleared when the page reloads or the operator signs out. Do not expose a publicly reachable demo board with a shared token or use this access method for real restaurant operations. With Supabase configured, status changes persist across API restarts; without it, orders and status changes exist only for the API process lifetime.
 
+The revised [spec 006](specs/006-demo-kitchen-order-board/spec.md) defines the next public experience: one shared read-only kitchen, server-side fake staff with randomized preparation times, and a simulated staff conversation beside the board. Public checkout will use generated fictional details. That revision is specified but not implemented; the token-protected manual board described above is the current behavior.
+
 ## Customer order tracking
 
 Choose **Track an order** from the React website or Flutter menu, or continue directly from confirmation with the order code already populated. Confirmation and tracking check the API every 15 seconds after the previous check finishes while visible. Checks pause when the view is hidden or covered, and resume with a fresh lookup. Completed and cancelled demo orders stop polling; manual refresh remains available. Failed refreshes keep the last loaded order and offer a retry.
@@ -121,3 +123,5 @@ npm run dev:api
 ```
 
 Never place these settings in the web or Flutter client configuration. The endpoint accepts at most 24 KB per request, 1,200 UTF-8 bytes per message, and 10 history messages; provider calls time out after 8 seconds and replies are limited to 4 KB. It excludes checkout contact and delivery fields from provider context and scrubs common personal-detail patterns from message history. Before enabling an external provider, review its data processing and retention settings. In production, configure a supported provider explicitly; the API returns a recoverable unavailable response if no provider is configured.
+
+The selected direction for [spec 005](specs/005-contextual-ai-assistant/spec.md) is natural free-form customer conversation with the existing `OPENAI_API_KEY` vault entry and the cheapest model that passes the actual bilingual workload. [GPT-5 nano is the starting candidate](specs/005-contextual-ai-assistant/model-decision.md), verified with a small live synthetic probe. The existing adapter still needs its parameter update and runtime vault launch support before that selection works through the app; full acceptance remains pending. The public staff feed uses localized templates and makes no paid model calls.

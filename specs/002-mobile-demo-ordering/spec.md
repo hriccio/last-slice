@@ -35,6 +35,8 @@ Keep browsing as the first screen. Use a clear forward progression with persiste
 
 ## Customer flow
 
+**Public demo revision:** The revised [Spec 006](../006-demo-kitchen-order-board/spec.md) requires generated fictional checkout details in public React and Flutter clients, without visitor identity/contact/address entry. Keep customer chat free-form and natural per the revised Spec 005. These public-mode changes are specified and still require implementation and validation.
+
 1. **Browse:** fetch the localized menu from `GET /menu`. Show all five flavors, descriptions, and starting prices. A visible language control switches between `pt-BR` and `en-US`.
 2. **Customize:** choose one flavor, size, crust, removals, and optional extras. Request an authoritative quote and display the updated total before adding to cart.
 3. **Cart:** list each line with flavor, size, crust, removed ingredients, extras, quantity, and quoted line total. Let the customer change quantities, remove lines, choose pickup/delivery, and review the total.

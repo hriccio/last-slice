@@ -1,6 +1,6 @@
 # 005 — Contextual AI ordering assistant
 
-**Status:** Implemented; build-validated, interactive acceptance pending
+**Status:** Initial adapter implemented; natural conversation and vault-backed OpenAI decisions recorded on 2026-10-24; acceptance pending
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [001 — Web demo ordering journey](../001-web-demo-ordering/spec.md), [002 — Flutter cross-platform demo ordering](../002-mobile-demo-ordering/spec.md), [003 — Flutter Web PWA customer client](../003-flutter-web-pwa/spec.md)
 
 ## Outcome
@@ -27,7 +27,7 @@ This slice advances the product without requiring an iOS runner, Apple hardware,
 - Autonomous cart edits, option selection, quote/order submission, checkout-field entry, payment, or fulfillment actions.
 - Answers about real restaurant operations, live inventory, delivery timing, or guaranteed fulfillment.
 - Exposing customer name, phone, street address, delivery reference, order code, or other personal/order lookup data to the model.
-- A specific AI vendor, model, deployment platform, or paid service commitment. The implementation must use a provider adapter and select/configure a compatible provider without changing the client contract.
+- Provider-specific behavior in clients. OpenAI is the selected server-side provider; the adapter keeps the client contract independent of the model.
 - iOS project setup, Apple signing, or App Store work.
 
 ## Customer behavior
@@ -39,6 +39,24 @@ This slice advances the product without requiring an iOS runner, Apple hardware,
 5. The customer closes the assistant and continues at the same ordering step with the same cart and checkout fields.
 
 If the assistant is unavailable, the app explains that help is temporarily unavailable and leaves the structured ordering journey usable. A failed or timed-out answer never clears or modifies customer state.
+
+### Natural conversation
+
+- Public customers can type freely in natural language. Preset questions may be optional shortcuts; they must not replace or restrict free chat.
+- Understand informal phrasing, abbreviations, ordinary spelling mistakes, and requests such as “quero uma grande com bacon”, “sem cebola”, or “what would you suggest for two people?” within the actual menu and supported options.
+- Use the current selection and bounded conversation context to understand follow-ups. Ask one useful clarification at a time when size, flavor, quantity, or a preference is unclear, rather than requiring a command format or repeating a questionnaire.
+- Replies should sound natural in Brazilian Portuguese or US English. Explain menu facts and help the customer decide without dumping the whole menu, repeating fixed disclaimers every turn, or displaying raw identifiers and amounts in cents. Persistent UI copy carries the demo notice; clarify simulated transactions whenever a request could imply real payment or fulfillment.
+- Customer chat is separate from the read-only fictional staff feed in Spec 006. Visitor messages never appear on the shared kitchen board or staff feed.
+- This slice keeps the existing advisory boundary: a conversational summary is a proposed choice, not a changed cart or submitted order. The customer applies selections using the structured controls and explicitly confirms checkout. Enabling chat to apply a reviewed draft to the cart would require a separate contract decision.
+
+## Selected provider, secret access, and cost
+
+- Use the existing local KeePassXC entry `OPENAI_API_KEY`. Read it only at runtime using `CODEX_KC_VAULT` and `CODEX_KC_SECRET`; inject the resulting API key into the API process environment. Never copy the vault password or API key into a repository file, client, URL, log, evaluation record, or commit.
+- Selected starting model: `gpt-5-nano-2025-08-07`, subject to the bilingual natural-conversation and grounding acceptance checks below. Keep the model configurable on the server. Evaluate a more expensive candidate only if the cheaper available model fails those checks; do not silently upgrade models or enable paid tools.
+- The live vault-backed probe and current official price comparison are recorded in [model decision](model-decision.md). A successful probe is not full feature acceptance.
+- Call OpenAI's server-side Chat Completions endpoint with `store: false`. For GPT-5 nano, use supported parameters: minimal reasoning, low verbosity, a bounded `max_completion_tokens` budget, and no unsupported custom temperature or legacy `max_tokens` field. The existing generic adapter must be updated before selecting this model in the app.
+- Bound input, history, output, and request duration. The public demo must also enforce a global request/token spending ceiling and a localized exhausted-budget response; anonymous callers must not have unlimited paid access. Keep local fake mode for deterministic development.
+- API content is not used for training by default, but standard OpenAI abuse-monitoring logs may retain content for up to 30 days. `store: false` does not itself grant Zero Data Retention. Document the actual project's data controls; do not claim zero provider retention without verifying eligibility and configuration.
 
 ## Assistant behavior and grounding
 
@@ -79,6 +97,7 @@ The API uses a provider adapter selected through server configuration. Provider 
 - Bound message size, history length, provider response size, and request duration. Return a localized recoverable error when a limit is exceeded.
 - The client clears the in-memory conversation when the customer explicitly starts a new conversation or closes the app session. Navigating between ordering steps within the session may retain the bounded conversation.
 - Before any provider sends customer data outside the API, the implementation documentation must state the provider's processing/retention configuration. This slice sends only the minimized, non-identifying menu/order-selection context described above.
+- Free text can contain personal information volunteered by a visitor. Do not request identity or contact details in chat. Minimize and redact recognizable personal/contact data before provider calls, keep messages out of shared feeds and application logs, and give a concise localized instruction not to submit personal details. Redaction is a reduction measure, not proof that all free text is anonymous.
 
 ## Localization and accessibility
 
@@ -101,6 +120,9 @@ The API uses a provider adapter selected through server configuration. Provider 
 - [ ] A deterministic local fake adapter supports UI/API development without external credentials and is distinguishable from a real provider response.
 - [ ] The assistant is usable with keyboard and screen reader on desktop and narrow mobile layouts.
 - [ ] The endpoint enforces documented request, context, history, response, and timeout limits and returns the existing stable API error envelope.
+- [ ] Free-form, multi-turn conversation handles informal requests and clarification naturally in both locales, without requiring preset prompts or implying that advice changed/submitted an order.
+- [ ] The selected model works through the actual adapter with runtime vault injection; no credential reaches clients or committed artifacts.
+- [ ] Public assistant usage has enforced global spending limits and recoverable localized budget errors.
 
 ## Decisions fixed by this spec
 
@@ -109,4 +131,5 @@ The API uses a provider adapter selected through server configuration. Provider 
 - Assistant messages are transient and informational. The assistant cannot mutate orders or customer-entered selections.
 - The assistant receives minimized menu and selection context only, with no direct identifiers or fulfillment address data.
 - Provider choice and deployment are runtime implementation decisions behind the specified adapter; the client and API response contract remain provider-neutral.
+- OpenAI with the vault-backed key and the cheapest model that passes the actual workload checks is the selected implementation direction. The current candidate is GPT-5 nano; no stronger model is selected merely because it is newer.
 - This feature is implemented and validated on existing web/PWA/Android targets and does not depend on iOS or Apple tooling.

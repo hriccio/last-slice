@@ -87,6 +87,8 @@ These five flavors are the complete menu for this slice. Ingredients are descrip
 
 ## Checkout details
 
+**Public demo revision:** [Spec 006](../006-demo-kitchen-order-board/spec.md) replaces identity/contact/address entry with server-owned fictional fixture choices in public mode. The fields below describe the earlier ordering contract; they must not invite public visitors to enter real personal details. The API and both clients must adopt the revised public request contract together.
+
 Required in both fulfillment modes:
 
 - Customer name, 2–80 characters after trimming.

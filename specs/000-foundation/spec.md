@@ -54,6 +54,10 @@ Clients may render and locally stage selections, but must not independently defi
 - Locale selection and fallback behavior are to be specified before implementation; do not silently mix languages in one flow.
 - Store machine-readable values (for example, currency amounts) separately from localized display strings.
 
+## Public demo privacy direction
+
+The public demo must work without identifying a visitor. The revised [Spec 006](../006-demo-kitchen-order-board/spec.md) defines one shared read-only kitchen, server-simulated staff and conversation, and generated fictional checkout details. In public mode, those fixture-based requirements supersede the earlier name/phone/address entry flow; update client/API contracts together before launch. The optional customer assistant remains free-form natural conversation under [Spec 005](../005-contextual-ai-assistant/spec.md), with minimized provider context, transient conversation, redaction, and actual retention settings disclosed. Do not describe random tokens or a lack of login as a guarantee of legal anonymity.
+
 ## Demo-only transaction constraints
 
 - No real payment gateway, charge, card capture, or fulfillment integration is in scope.
