@@ -1,6 +1,6 @@
 # 003 — Flutter Web PWA customer client
 
-**Status:** Approved for implementation
+**Status:** Implemented and built; published HTTPS installation acceptance pending
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [001 — Web demo ordering journey](../001-web-demo-ordering/spec.md), [002 — Flutter cross-platform demo ordering](../002-mobile-demo-ordering/spec.md)
 
 ## Outcome

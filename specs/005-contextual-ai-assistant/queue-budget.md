@@ -1,6 +1,6 @@
 # Chat queue, worst-case cost, and response-time feedback
 
-**Status:** Cost policy accepted on 2026-10-24; queue behavior specified for implementation
+**Status:** Implemented and validated on 2026-10-24; see [release evidence](../release-validation.md)
 **Parent:** [Spec 005](spec.md)
 
 ## Goal and boundaries

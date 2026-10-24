@@ -1,6 +1,6 @@
 # 000 — Product foundation
 
-**Status:** Proposed foundation
+**Status:** Implemented foundation; release evidence and remaining gates recorded
 **Scope:** Product behavior and monorepo boundaries for the fictional MVP
 
 ## Problem and intent

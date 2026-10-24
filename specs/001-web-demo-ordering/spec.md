@@ -1,6 +1,6 @@
 # 001 — Web demo ordering journey
 
-**Status:** Ready for implementation
+**Status:** Implemented; local release validation recorded
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md)
 
 ## Outcome

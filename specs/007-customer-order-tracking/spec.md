@@ -9,7 +9,7 @@ Customers can keep an order tracking page open and see status changes made from 
 
 This is a customer-facing web and Flutter slice. It uses the existing order lookup contract and requires no iOS, Apple hardware, or Xcode work.
 
-**Later kitchen revision:** The 2026-10-24 revision of [Spec 006](../006-demo-kitchen-order-board/spec.md) specifies a public read-only board and server-side fake staff with randomized progress. That revision is not implemented by this slice's completed validation. Its integration must keep the API authoritative and preserve this tracking response, polling, privacy, and terminal behavior; the separate staff feed does not add historical per-step timestamps to customer tracking.
+**Later kitchen revision:** The 2026-10-24 revision of [Spec 006](../006-demo-kitchen-order-board/spec.md) specifies a public read-only board and server-side fake staff with randomized progress. That revision is now implemented and covered by the [integrated release validation](../release-validation.md). Its integration keeps the API authoritative and preserve this tracking response, polling, privacy, and terminal behavior; the separate staff feed does not add historical per-step timestamps to customer tracking.
 
 ## Scope
 

@@ -1,6 +1,6 @@
 # Assistant implementation validation
 
-Recorded on 2026-10-24. Full public release acceptance is completed together with revised Spec 006.
+Recorded on 2026-10-24. Local integrated acceptance is recorded with revised Spec 006 in the [release record](../release-validation.md); deployment and human accessibility gates remain explicit.
 
 - Eight assistant/API tests cover bounded token construction/history trimming, redaction and wording guards; FIFO/idempotency/cancellation; unknown charges; UTC rollover and restart-safe slots; exact actual-cost settlement; private RPC permissions; budget exhaustion; and average reply times including queue waits. PostgreSQL migration tests execute the actual PL/pgSQL with PGlite, not a reimplementation of the ledger. The API-to-PostgREST/provider integration fixture checks the actual request parameters and sanitized context.
 - Two Chromium tests cover queue/cancellation, cold-start versus observed averages, duplicate sends, completed replies, and exhausted-budget recovery in both locales.

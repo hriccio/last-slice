@@ -122,15 +122,7 @@ To use an installed Chromium instead of downloading the test browser, run `CHROM
 
 The optional assistant is available from menu browsing, customization, cart, and checkout in the React and Flutter clients. It only provides information; customers make and review all selections in the ordering controls. Assistant conversation text is not persisted or written to order records.
 
-Local API development uses a deterministic fake assistant by default. The interface identifies these responses as a development preview and does not need provider credentials. To connect a server-side provider adapter, configure the API process with an OpenAI-compatible chat completions endpoint and runtime secrets:
-
-```sh
-ASSISTANT_PROVIDER=openai-compatible \
-ASSISTANT_API_URL=https://provider.example/v1/chat/completions \
-ASSISTANT_API_KEY=replace-with-server-only-key \
-ASSISTANT_MODEL=replace-with-model-id \
-npm run dev:api
-```
+Local API development uses a deterministic fake assistant by default. The interface identifies these responses as a development preview and does not need provider credentials. For paid public use, use the vault-backed OpenAI launcher described below. An OpenAI-compatible endpoint is available only for controlled local tests.
 
 Never place these settings in the web or Flutter client configuration. The endpoint accepts at most 24 KB per request, 1,200 UTF-8 bytes per message, and 10 history messages; provider calls time out after 8 seconds and replies are limited to 4 KB. It excludes checkout contact and delivery fields from provider context and scrubs common personal-detail patterns from message history. Before enabling an external provider, review its data processing and retention settings. In production, configure a supported provider explicitly; the API returns a recoverable unavailable response if no provider is configured.
 
@@ -139,3 +131,5 @@ The customer assistant uses the accepted GPT-5 nano snapshot with the existing `
 The [public chat queue](specs/005-contextual-ai-assistant/queue-budget.md) caps application model-token spending at US$1/day, reserves US$0.00052 per worst-case attempt, and offers one global answer slot every 45 seconds. Chat shows queue position, estimated reply time, and a recent measured average after five completed samples. The first request may start immediately. Cancellation before dispatch is free of provider calls; timeout or unknown usage retains the full reservation. Customer messages and replies stay in bounded process memory; the database holds only accounting/coordination metadata. The initial demo requires one API process for volatile request/reply retrieval; overlapping processes still share the same atomic spending/slot ledger. See [assistant validation](specs/005-contextual-ai-assistant/validation.md).
 
 Run API/SQL regression checks with `npm run test:api`, browser checks with `CHROMIUM_EXECUTABLE=/path/to/chromium npx playwright test`, and Flutter widget checks with `flutter test` from `apps/mobile`. These use controlled clocks/provider usage for budget boundaries instead of paid load tests.
+
+See the [integrated release validation](specs/release-validation.md) for acceptance evidence and remaining deployment checks.

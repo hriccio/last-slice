@@ -1,6 +1,6 @@
 # 006 — Public demo kitchen and simulated staff
 
-**Status:** Public board, fake staff, staff feed, and fictional checkout implemented; integrated release acceptance in progress
+**Status:** Implemented and locally validated; deployment gates recorded
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [001 — Web demo ordering journey](../001-web-demo-ordering/spec.md), [002 — Flutter customer client](../002-mobile-demo-ordering/spec.md)
 **Integrates with:** [005 — Contextual assistant](../005-contextual-ai-assistant/spec.md), [007 — Customer tracking](../007-customer-order-tracking/spec.md)
 
@@ -106,16 +106,16 @@ The API owns transitions. Customer clients and the public board never calculate 
 
 ## Acceptance criteria
 
-- [ ] `/kitchen` opens publicly with no registration or shared token entry and clearly describes the read-only simulated experience in both locales.
-- [ ] All visitors see one shared fictional board; no visitor can mutate kitchen state through UI or API, including with an old operator token in public mode.
-- [ ] Fake staff advance orders through the correct pickup/delivery branches with bounded randomized timing and no open browser.
-- [ ] Restart/concurrency tests prove persistent scheduling, compare-and-set transitions, correct update times, no skipped stages, and no duplicate staff events.
-- [ ] Terminal orders remain terminal and expired demo data is excluded and cleaned up according to the retention rule.
-- [ ] The side chat shows natural, localized fictional staff exchanges consistent with committed order state, with no paid model calls and no visitor input.
-- [ ] Board and chat polling pause while hidden, avoid overlaps, recover from failure with retained data, and support manual refresh.
-- [ ] React and Flutter public checkout require no real identity/contact/address details; their request contracts accept only server-owned fictional fixtures and order choices.
-- [ ] Public orders, messages, logs, and provider context expose no collected checkout identity, raw payload, customer chat, idempotency information, or secrets.
-- [ ] Customer tracking reflects simulated status updates and retains Spec 007's privacy, locale, terminal, and failure behavior.
+- [x] `/kitchen` opens publicly with no registration or shared token entry and clearly describes the read-only simulated experience in both locales.
+- [x] All visitors see one shared fictional board; no visitor can mutate kitchen state through UI or API, including with an old operator token in public mode.
+- [x] Fake staff advance orders through the correct pickup/delivery branches with bounded randomized timing and no open browser.
+- [x] Restart/concurrency tests prove persistent scheduling, compare-and-set transitions, correct update times, no skipped stages, and no duplicate staff events.
+- [x] Terminal orders remain terminal and expired demo data is excluded and cleaned up according to the retention rule.
+- [x] The side chat shows natural, localized fictional staff exchanges consistent with committed order state, with no paid model calls and no visitor input.
+- [x] Board and chat polling pause while hidden, avoid overlaps, recover from failure with retained data, and support manual refresh.
+- [x] React and Flutter public checkout require no real identity/contact/address details; their request contracts accept only server-owned fictional fixtures and order choices.
+- [x] Public orders, messages, logs, and provider context expose no collected checkout identity, raw payload, customer chat, idempotency information, or secrets.
+- [x] Customer tracking reflects simulated status updates and retains Spec 007's privacy, locale, terminal, and failure behavior.
 - [ ] Keyboard/screen-reader checks cover filters, refresh, new staff messages, focus retention, narrow layouts, and larger text.
 - [ ] Public read/write separation, anonymous/global capacity controls, paid-assistant limits, and actual data-use/retention settings are verified before public launch.
 

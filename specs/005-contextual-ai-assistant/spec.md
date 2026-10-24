@@ -1,6 +1,6 @@
 # 005 — Contextual AI ordering assistant
 
-**Status:** Provider, vault launch, budget ledger, queue, and both clients implemented; release acceptance continues with Spec 006
+**Status:** Implemented and locally validated; deployment gates recorded
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [001 — Web demo ordering journey](../001-web-demo-ordering/spec.md), [002 — Flutter cross-platform demo ordering](../002-mobile-demo-ordering/spec.md), [003 — Flutter Web PWA customer client](../003-flutter-web-pwa/spec.md)
 
 ## Outcome
@@ -124,25 +124,25 @@ The API uses a provider adapter selected through server configuration. Provider 
 
 ## Acceptance criteria
 
-- [ ] A customer can open and close the assistant from menu, customization, cart, and checkout in the React and Flutter clients.
-- [ ] Opening, using, or closing the assistant preserves the selected step, cart, quote, and checkout fields.
-- [ ] The assistant can explain supported menu ingredients and options in `pt-BR` and `en-US` using API-provided context.
-- [ ] Price answers use the current API quote or direct customers to the structured quote; client-provided price values are not trusted.
-- [ ] The assistant cannot change cart/order state or invoke quote, order, or tracking mutations on the customer's behalf.
-- [ ] Out-of-scope questions, invalid requests, provider failures, and timeouts receive safe localized responses while ordering remains usable.
-- [ ] Responses do not invent menu, price, availability, order status, timing, or fulfillment claims and consistently preserve the demo-only boundary.
-- [ ] Provider credentials exist only in API runtime configuration; no secrets or provider calls are present in client bundles.
-- [ ] Personal contact/address details and order lookup data are excluded from provider context; conversation content is not persisted or logged.
-- [ ] A deterministic local fake adapter supports UI/API development without external credentials and is distinguishable from a real provider response.
+- [x] A customer can open and close the assistant from menu, customization, cart, and checkout in the React and Flutter clients.
+- [x] Opening, using, or closing the assistant preserves the selected step, cart, quote, and checkout fields.
+- [x] The assistant can explain supported menu ingredients and options in `pt-BR` and `en-US` using API-provided context.
+- [x] Price answers use the current API quote or direct customers to the structured quote; client-provided price values are not trusted.
+- [x] The assistant cannot change cart/order state or invoke quote, order, or tracking mutations on the customer's behalf.
+- [x] Out-of-scope questions, invalid requests, provider failures, and timeouts receive safe localized responses while ordering remains usable.
+- [x] Responses do not invent menu, price, availability, order status, timing, or fulfillment claims and consistently preserve the demo-only boundary.
+- [x] Provider credentials exist only in API runtime configuration; no secrets or provider calls are present in client bundles.
+- [x] Personal contact/address details and order lookup data are excluded from provider context; conversation content is not persisted or logged.
+- [x] A deterministic local fake adapter supports UI/API development without external credentials and is distinguishable from a real provider response.
 - [ ] The assistant is usable with keyboard and screen reader on desktop and narrow mobile layouts.
-- [ ] The endpoint enforces documented request, context, history, response, and timeout limits and returns the existing stable API error envelope.
-- [ ] Free-form, multi-turn conversation handles informal requests and clarification naturally in both locales, without requiring preset prompts or implying that advice changed/submitted an order.
-- [ ] The selected model works through the actual adapter with runtime vault injection; no credential reaches clients or committed artifacts.
-- [ ] Public assistant usage has enforced global spending limits and recoverable localized budget errors.
-- [ ] A bounded FIFO queue allows one outstanding message per conversation, deduplicates retries, supports cancellation before dispatch, and leaves the ordering controls usable.
-- [ ] Atomic WCS reservations, actual usage settlement, conservative handling of unknown/timeout charges, and a durable daily ledger enforce the US$1 cap across restarts and concurrent dispatch attempts.
-- [ ] Global 45-second pacing, input/output token limits, full/expired queue behavior, and daily-budget reset are verified with deterministic clocks and fake usage.
-- [ ] React and Flutter display this request's estimated reply time and an honestly calculated recent average, including cold-start and unavailable-estimate states, in both locales.
+- [x] The endpoint enforces documented request, context, history, response, and timeout limits and returns the existing stable API error envelope.
+- [x] Free-form, multi-turn conversation handles informal requests and clarification naturally in both locales, without requiring preset prompts or implying that advice changed/submitted an order.
+- [x] The selected model works through the actual adapter with runtime vault injection; no credential reaches clients or committed artifacts.
+- [x] Public assistant usage has enforced global spending limits and recoverable localized budget errors.
+- [x] A bounded FIFO queue allows one outstanding message per conversation, deduplicates retries, supports cancellation before dispatch, and leaves the ordering controls usable.
+- [x] Atomic WCS reservations, actual usage settlement, conservative handling of unknown/timeout charges, and a durable daily ledger enforce the US$1 cap across restarts and concurrent dispatch attempts.
+- [x] Global 45-second pacing, input/output token limits, full/expired queue behavior, and daily-budget reset are verified with deterministic clocks and fake usage.
+- [x] React and Flutter display this request's estimated reply time and an honestly calculated recent average, including cold-start and unavailable-estimate states, in both locales.
 
 ## Decisions fixed by this spec
 
