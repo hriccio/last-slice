@@ -1,6 +1,6 @@
 # 005 — Contextual AI ordering assistant
 
-**Status:** Initial adapter implemented; natural conversation and vault-backed OpenAI decisions recorded on 2026-10-24; acceptance pending
+**Status:** GPT-5 nano model accepted; natural conversation, vault access, and $1/day budget queue specified; implementation acceptance pending
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [001 — Web demo ordering journey](../001-web-demo-ordering/spec.md), [002 — Flutter cross-platform demo ordering](../002-mobile-demo-ordering/spec.md), [003 — Flutter Web PWA customer client](../003-flutter-web-pwa/spec.md)
 
 ## Outcome
@@ -20,6 +20,7 @@ This slice advances the product without requiring an iOS runner, Apple hardware,
 - Clear guidance to use the structured UI for selections, current quotes, checkout, and order tracking.
 - Localized assistant controls, loading/error states, and demo notices in `pt-BR` and `en-US`.
 - A server-only model-provider adapter configurable through environment settings. Provider credentials remain on the API and are never sent to either client.
+- A bounded, shared chat queue with a hard daily model-spending cap, worst-case cost reservation, and localized wait/average-response feedback.
 
 ### Excluded
 
@@ -37,6 +38,7 @@ This slice advances the product without requiring an iOS runner, Apple hardware,
 3. The customer can ask a question in natural language. The assistant responds in the selected locale, answers only within the supported demo scope, and can point to the relevant structured control.
 4. If a customer expresses a desired change (for example, a size or topping), the assistant explains how to make it in the UI. The customer performs and reviews the change through the existing controls.
 5. The customer closes the assistant and continues at the same ordering step with the same cart and checkout fields.
+6. When AI capacity is occupied or the next budget-backed answer slot is not available yet, the message waits in the chat queue. The panel shows its queue position and estimated reply time, plus a recent observed average when enough samples exist. The customer can cancel a waiting message or continue using the structured ordering controls.
 
 If the assistant is unavailable, the app explains that help is temporarily unavailable and leaves the structured ordering journey usable. A failed or timed-out answer never clears or modifies customer state.
 
@@ -52,11 +54,19 @@ If the assistant is unavailable, the app explains that help is temporarily unava
 ## Selected provider, secret access, and cost
 
 - Use the existing local KeePassXC entry `OPENAI_API_KEY`. Read it only at runtime using `CODEX_KC_VAULT` and `CODEX_KC_SECRET`; inject the resulting API key into the API process environment. Never copy the vault password or API key into a repository file, client, URL, log, evaluation record, or commit.
-- Selected starting model: `gpt-5-nano-2025-08-07`, subject to the bilingual natural-conversation and grounding acceptance checks below. Keep the model configurable on the server. Evaluate a more expensive candidate only if the cheaper available model fails those checks; do not silently upgrade models or enable paid tools.
+- Accepted model: `gpt-5-nano-2025-08-07`. The user accepted the model selection; bilingual natural-conversation, grounding, and integration acceptance still apply. Keep the model configurable on the server, with no silent model upgrade or paid tool use.
 - The live vault-backed probe and current official price comparison are recorded in [model decision](model-decision.md). A successful probe is not full feature acceptance.
 - Call OpenAI's server-side Chat Completions endpoint with `store: false`. For GPT-5 nano, use supported parameters: minimal reasoning, low verbosity, a bounded `max_completion_tokens` budget, and no unsupported custom temperature or legacy `max_tokens` field. The existing generic adapter must be updated before selecting this model in the app.
 - Bound input, history, output, and request duration. The public demo must also enforce a global request/token spending ceiling and a localized exhausted-budget response; anonymous callers must not have unlimited paid access. Keep local fake mode for deterministic development.
 - API content is not used for training by default, but standard OpenAI abuse-monitoring logs may retain content for up to 30 days. `store: false` does not itself grant Zero Data Retention. Document the actual project's data controls; do not claim zero provider retention without verifying eligibility and configuration.
+
+## Budget-backed chat queue
+
+The user selected a **US$1.00 per UTC day** application model-token budget. Use a bounded shared FIFO queue and one logical provider request at a time, with a global dispatch slot no more often than once every **45 seconds**. The first request may start immediately when a slot and budget are available; a 45-second slot is a throughput limit, not a mandatory delay for every visitor.
+
+The worst-case scenario (WCS) reserves **US$0.00052 per provider attempt**: at most 4,000 input tokens at US$0.05 per million and 800 generated tokens at US$0.40 per million. Count all system instructions, menu/quote context, history, current message, and provider message framing against the input limit; generated-token accounting includes reasoning. Do not base admission on the much smaller average cost of the live probe.
+
+The detailed [queue and budget contract](queue-budget.md) fixes admission/cancellation, idempotency, reservation/settlement, truthful timing feedback, privacy, errors, and deterministic validation. The API and both clients must implement it together. Pacing alone is insufficient: a shared atomic budget ledger must refuse dispatch when another WCS reservation would exceed the daily cap, including after a restart or with concurrent API processes.
 
 ## Assistant behavior and grounding
 
@@ -71,7 +81,7 @@ If the assistant is unavailable, the app explains that help is temporarily unava
 
 ## API contract
 
-Add `POST /assistant/messages` to the TypeScript API. It does not create or update an order.
+Use `POST /assistant/messages` to submit an assistant request. It does not create or update an order. The existing immediate-response implementation must evolve to support the queue contract without making clients hold an HTTP connection open while waiting.
 
 Request fields:
 
@@ -79,11 +89,14 @@ Request fields:
 - `message`: non-empty text with a documented maximum length.
 - `history`: bounded recent user/assistant turns, with a documented maximum count and per-message length. The server may trim older turns to enforce the context limit.
 - `context`: current screen and stable menu/selection identifiers needed to resolve context. The API must ignore or recompute monetary values and other authoritative facts from its own data.
+- `requestId`: a client-generated idempotency identifier for this message, scoped to an opaque transient conversation capability. Retrying submission must not create another queue entry or paid attempt.
 
-Successful response:
+When an immediate local fake response is available, or a completed request is retrieved, the successful response includes:
 
 - `reply`: localized assistant text.
 - `disclaimer`: a stable key or boolean indicating the response is informational and the structured UI/API remains authoritative.
+
+Public model-backed submission returns `202` with a protected request ticket, state, polling interval, and available queue/wait estimates. `GET /assistant/requests/{requestId}` retrieves only that conversation's request status or reply; `DELETE /assistant/requests/{requestId}` cancels a waiting request. These reads/cancellations must not call the provider. Ticket/capability credentials go in headers, not URLs or persistent client storage. The exact shared shapes and safe errors are defined in [queue and budget contract](queue-budget.md).
 
 Errors use the existing stable API error envelope. Include recoverable codes for invalid input, unavailable provider, and provider timeout. Do not return provider prompts, credentials, raw request payloads, or internal stack traces.
 
@@ -91,7 +104,7 @@ The API uses a provider adapter selected through server configuration. Provider 
 
 ## Privacy and retention
 
-- Do not persist assistant messages or use them to update customer/order records in this slice.
+- Do not persist assistant messages or use them to update customer/order records in this slice. Waiting payloads and completed replies may be held briefly in bounded process memory as defined by the queue contract; a durable budget ledger contains only accounting/coordination metadata, never chat content.
 - Do not send customer name, phone, delivery address, reference, order code, or order status to the provider.
 - Do not log full message text, conversation history, or context snapshots. Operational logs may record request outcome, duration, and a request correlation identifier without content.
 - Bound message size, history length, provider response size, and request duration. Return a localized recoverable error when a limit is exceeded.
@@ -105,6 +118,7 @@ The API uses a provider adapter selected through server configuration. Provider 
 - The answer follows the selected locale. If a customer writes in another language, the assistant still responds in the selected app locale.
 - Opening and closing the panel must preserve keyboard focus sensibly; messages are readable by screen readers and new replies are announced without stealing focus from the order form.
 - The assistant panel must not obscure the active total or the next structured action on narrow screens.
+- Queue position, estimated reply time, recent average response time, cancellation, full-queue, expired-ticket, and daily-budget states are localized and accessible. Announce meaningful state changes without moving focus or reading an updating countdown repeatedly.
 
 ## Acceptance criteria
 
@@ -123,6 +137,10 @@ The API uses a provider adapter selected through server configuration. Provider 
 - [ ] Free-form, multi-turn conversation handles informal requests and clarification naturally in both locales, without requiring preset prompts or implying that advice changed/submitted an order.
 - [ ] The selected model works through the actual adapter with runtime vault injection; no credential reaches clients or committed artifacts.
 - [ ] Public assistant usage has enforced global spending limits and recoverable localized budget errors.
+- [ ] A bounded FIFO queue allows one outstanding message per conversation, deduplicates retries, supports cancellation before dispatch, and leaves the ordering controls usable.
+- [ ] Atomic WCS reservations, actual usage settlement, conservative handling of unknown/timeout charges, and a durable daily ledger enforce the US$1 cap across restarts and concurrent dispatch attempts.
+- [ ] Global 45-second pacing, input/output token limits, full/expired queue behavior, and daily-budget reset are verified with deterministic clocks and fake usage.
+- [ ] React and Flutter display this request's estimated reply time and an honestly calculated recent average, including cold-start and unavailable-estimate states, in both locales.
 
 ## Decisions fixed by this spec
 
@@ -131,5 +149,5 @@ The API uses a provider adapter selected through server configuration. Provider 
 - Assistant messages are transient and informational. The assistant cannot mutate orders or customer-entered selections.
 - The assistant receives minimized menu and selection context only, with no direct identifiers or fulfillment address data.
 - Provider choice and deployment are runtime implementation decisions behind the specified adapter; the client and API response contract remain provider-neutral.
-- OpenAI with the vault-backed key and the cheapest model that passes the actual workload checks is the selected implementation direction. The current candidate is GPT-5 nano; no stronger model is selected merely because it is newer.
-- This feature is implemented and validated on existing web/PWA/Android targets and does not depend on iOS or Apple tooling.
+- The vault-backed GPT-5 nano model is accepted. Initial public capacity is US$1/day, WCS US$0.00052 per attempt, a bounded FIFO queue, and one global dispatch slot every 45 seconds; changing model, prices, or token limits requires recalculating that policy.
+- This feature targets existing web/PWA/Android clients and does not depend on iOS or Apple tooling. Model acceptance does not mark the revised feature implementation complete.

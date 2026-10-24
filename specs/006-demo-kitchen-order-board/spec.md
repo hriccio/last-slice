@@ -31,6 +31,7 @@ This revision replaces the earlier public-facing operator-token and manual-trans
 - Real staff, real inventory, real preparation, real dispatch, real delivery, payments, or operational guarantees.
 - Public status buttons, visitor chat messages in the staff feed, user profiles, logins, social identity, or fingerprinting.
 - AI-generated staff dialogue or paid model calls for the kitchen simulation. Customer AI help remains a separate Spec 005 feature.
+- Staff events competing for customer AI queue slots. The Spec 005 US$1/day chat queue applies only to customer model requests; local staff templates and preparation progress continue independently.
 - Editing order contents/totals, cancelling orders, or exposing personal details, raw checkout payloads, credentials, or idempotency keys.
 - New customer order states, skipping/reversing stages, historical per-step timestamps in the customer tracking contract, or estimated real delivery times.
 - iOS setup, public deployment, or a claim that anonymous-looking access automatically exempts the service from privacy law.
