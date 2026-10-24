@@ -1,6 +1,6 @@
 # 007 — Customer order tracking
 
-**Status:** Implemented; web and Flutter builds validated, interactive acceptance pending
+**Status:** Fulfilled — acceptance validated on 2026-10-24; see [validation record](validation.md)
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [001 — Web demo ordering journey](../001-web-demo-ordering/spec.md), [002 — Flutter cross-platform demo ordering](../002-mobile-demo-ordering/spec.md), [003 — Flutter Web PWA customer client](../003-flutter-web-pwa/spec.md), [006 — Demo kitchen order board](../006-demo-kitchen-order-board/spec.md)
 
 ## Outcome
@@ -80,18 +80,18 @@ The timeline uses the current status returned by the API and the lifecycle order
 
 ## Acceptance criteria
 
-- [ ] Confirmation can open tracking with the order code already populated in the React and Flutter clients.
-- [ ] The confirmation status preview reflects a newer server status while confirmation remains visible, without requiring the customer to reopen the order.
-- [ ] A customer can enter an order code and load the latest server status in both locales.
-- [ ] The timeline follows the correct pickup or delivery lifecycle branch and distinguishes current, upcoming, completed, and cancelled demo states.
-- [ ] A kitchen status change appears during periodic refresh without requiring code re-entry; polling is at least 15 seconds apart and pauses when hidden/backgrounded.
-- [ ] Manual refresh is available and the interface reports the last successful check.
-- [ ] A refresh failure preserves the last known order and status and offers a retry without inventing progress.
-- [ ] Polling stops after a terminal status, while manual refresh remains available.
-- [ ] The lookup response adds `updatedAt` and continues to omit all customer contact, address, payment, and idempotency data.
-- [ ] Customer-visible copy consistently describes this as a demo and makes no real preparation, payment, pickup, or delivery guarantee.
-- [ ] Tracking is usable with keyboard and screen readers, and the timeline remains usable at narrow widths and larger text sizes.
-- [ ] The React website, Flutter Web/PWA, and Android customer app use the same server-reported status behavior without requiring iOS-specific work.
+- [x] Confirmation can open tracking with the order code already populated in the React and Flutter clients.
+- [x] The confirmation status preview reflects a newer server status while confirmation remains visible, without requiring the customer to reopen the order.
+- [x] A customer can enter an order code and load the latest server status in both locales.
+- [x] The timeline follows the correct pickup or delivery lifecycle branch and distinguishes current, upcoming, completed, and cancelled demo states.
+- [x] A kitchen status change appears during periodic refresh without requiring code re-entry; polling is at least 15 seconds apart and pauses when hidden/backgrounded.
+- [x] Manual refresh is available and the interface reports the last successful check.
+- [x] A refresh failure preserves the last known order and status and offers a retry without inventing progress.
+- [x] Polling stops after a terminal status, while manual refresh remains available.
+- [x] The lookup response adds `updatedAt` and continues to omit all customer contact, address, payment, and idempotency data.
+- [x] Customer-visible copy consistently describes this as a demo and makes no real preparation, payment, pickup, or delivery guarantee.
+- [x] Tracking is usable with keyboard and screen readers, and the timeline remains usable at narrow widths and larger text sizes.
+- [x] The React website, Flutter Web/PWA, and Android customer app use the same server-reported status behavior without requiring iOS-specific work.
 
 ## Decisions fixed by this spec
 
@@ -99,3 +99,10 @@ The timeline uses the current status returned by the API and the lifecycle order
 - Tracking uses bounded foreground polling rather than push or a persistent connection.
 - Only the current status and its latest update time are available; the product does not imply historical per-step timestamps.
 - The order code is the only customer lookup credential in this fictional demo. No account or real operational promise is introduced.
+
+## Acceptance validation
+
+- Exercise React tracking in Chromium with Playwright and Flutter tracking with SDK widget tests, covering confirmation handoff, both locales and fulfillment branches, foreground refresh, failures, terminal statuses, and accessible step labels.
+- Run the real API in memory mode to check kitchen-to-customer updates, timestamps, and the exact privacy-limited lookup response. Check the Supabase lookup path against a controlled PostgREST fixture without real credentials.
+- Build the React website, Flutter Web/PWA, and Android debug app. Smoke-check Flutter Web in Chromium and the Android app on an emulator against the same local API.
+- Record validation results and any environment limitations alongside this spec. Passing builds alone do not complete acceptance.

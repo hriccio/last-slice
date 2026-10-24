@@ -2,7 +2,7 @@ import {createServer} from 'node:http';
 import {createHash,randomBytes,timingSafeEqual} from 'node:crypto';
 import {Buffer} from 'node:buffer';
 import {createClient} from '@supabase/supabase-js';
-import {calculate,extras,flavors,isLocale,locales,sizes,crustSurcharge,deliveryFee,type OrderRequest,type Status} from '@last-slice/contracts';
+import {calculate,extras,flavors,isLocale,locales,sizes,crustSurcharge,deliveryFee,type OrderRequest,type OrderTrackingResponse,type Status} from '@last-slice/contracts';
 const port=Number(process.env.PORT||3001);
 const supabaseUrl=process.env.SUPABASE_URL, supabaseKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
 const db=supabaseUrl&&supabaseKey?createClient(supabaseUrl,supabaseKey):null;
@@ -66,9 +66,12 @@ function nextOrderStatus(status:Status,fulfillment:'pickup'|'delivery'):Status|n
  if(status==='ready_for_pickup'||status==='out_for_delivery')return 'completed';
  return null;
 }
+function orderLines(data:any){
+ return Array.isArray(data?.lines)?data.lines.map((line:any)=>({flavorId:line.flavorId,sizeId:line.sizeId,crustId:line.crustId,removedIngredientIds:line.removedIngredientIds,extraToppingIds:line.extraToppingIds,quantity:line.quantity,unitPrice:line.unitPrice,lineTotal:line.lineTotal})):[];
+}
 function kitchenOrder(order:any,orderCode?:string,createdAt?:string,status?:Status){
  const data=order?.order_data??order;
- const lines=Array.isArray(data?.lines)?data.lines.map((line:any)=>({flavorId:line.flavorId,sizeId:line.sizeId,crustId:line.crustId,removedIngredientIds:line.removedIngredientIds,extraToppingIds:line.extraToppingIds,quantity:line.quantity,unitPrice:line.unitPrice,lineTotal:line.lineTotal})):[];
+ const lines=orderLines(data);
  return {orderCode:orderCode??data?.orderCode,createdAt:createdAt??data?.createdAt,locale:data?.locale,fulfillment:data?.fulfillment,status:status??order?.status??data?.status,lines,subtotal:data?.subtotal,deliveryFee:data?.deliveryFee,total:data?.total};
 }
 function kitchenAuthorized(req:any){
@@ -202,7 +205,23 @@ const server=createServer(async(req,res)=>{
   if(db){const {error}=await db.from('demo_orders').insert({order_code:code,idempotency_key:key,payload,order_data:order});if(error){if(error.code==='23505'){const {data}=await db.from('demo_orders').select('payload,order_data').eq('idempotency_key',key).single();if(data){if(data.payload!==payload)return send(res,409,safeError('idempotency_conflict',409).body);return send(res,200,data.order_data);}}return send(res,500,safeError('order_persistence_failed',500).body);}}
   memoryOrders.set(code,order);idempotency.set(key,{payload,order});return send(res,201,order);
  }
- const match=url.pathname.match(/^\/orders\/([A-Z0-9-]+)$/);if(req.method==='GET'&&match){let order:any;if(db){const {data,error}=await db.from('demo_orders').select('order_data,status,created_at,updated_at').eq('order_code',match[1]).maybeSingle();if(error)return send(res,500,safeError('order_lookup_failed',500).body);order=data?{...data.order_data,status:data.status,createdAt:data.created_at,updatedAt:data.updated_at}:undefined;}else order=memoryOrders.get(match[1]);if(!order)return send(res,404,safeError('order_not_found',404).body);return send(res,200,{orderCode:order.orderCode,createdAt:order.createdAt,updatedAt:order.updatedAt??order.updated_at??order.createdAt,status:order.status,statusKey:statusKey(order.status),fulfillment:order.fulfillment,lines:order.lines,subtotal:order.subtotal,deliveryFee:order.deliveryFee,total:order.total,demoOnly:true});}
+ const match=url.pathname.match(/^\/orders\/([A-Z0-9-]+)$/);
+ if(req.method==='GET'&&match){
+  let order:any;
+  if(db){
+   const {data,error}=await db.from('demo_orders').select('order_data,status,created_at,updated_at').eq('order_code',match[1]).maybeSingle();
+   if(error)return send(res,500,safeError('order_lookup_failed',500).body);
+   order=data?{...data.order_data,status:data.status,createdAt:data.created_at,updatedAt:data.updated_at}:undefined;
+  }else order=memoryOrders.get(match[1]);
+  if(!order)return send(res,404,safeError('order_not_found',404).body);
+  const response:OrderTrackingResponse={
+   orderCode:order.orderCode,createdAt:order.createdAt,
+   updatedAt:order.updatedAt??order.createdAt,
+   status:order.status,statusKey:statusKey(order.status),fulfillment:order.fulfillment,
+   lines:orderLines(order),subtotal:order.subtotal,deliveryFee:order.deliveryFee,total:order.total,demoOnly:true,
+  };
+  return send(res,200,response);
+ }
  return send(res,404,{error:{code:'not_found',messageKey:'errors.not_found'}});
 });
 server.listen(port,()=>console.log(`Last Slice API listening on http://localhost:${port}${db?' (Supabase)':' (memory demo)'}`));

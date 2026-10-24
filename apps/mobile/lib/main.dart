@@ -133,6 +133,8 @@ String _copy(String locale, String key) {
       'trackHelp': 'Informe o código para consultar o status atual.',
       'find': 'Buscar pedido',
       'notFound': 'Pedido não encontrado. Confira o código e tente novamente.',
+      'lookupConnection':
+          'Não foi possível consultar o pedido. Confira a conexão e tente novamente.',
       'trackingConnection':
           'Não foi possível atualizar. Exibindo o último status carregado.',
       'refresh': 'Atualizar status',
@@ -141,6 +143,7 @@ String _copy(String locale, String key) {
       'statusUpdated': 'Status atualizado',
       'timeline': 'Etapas demonstrativas',
       'upcoming': 'Próxima etapa',
+      'preceding': 'Etapa anterior',
       'unknownStatus': 'Status desconhecido. Tente atualizar novamente.',
       'connection':
           'Não foi possível conectar ao cardápio. Confira a conexão e tente novamente.',
@@ -221,6 +224,8 @@ String _copy(String locale, String key) {
       'trackHelp': 'Enter your code to see the latest status.',
       'find': 'Look up order',
       'notFound': 'Order not found. Check the code and try again.',
+      'lookupConnection':
+          'Could not look up the order. Check your connection and try again.',
       'trackingConnection':
           'Could not refresh. Showing the last status we loaded.',
       'refresh': 'Refresh status',
@@ -228,7 +233,8 @@ String _copy(String locale, String key) {
       'lastChecked': 'Last checked',
       'statusUpdated': 'Status updated',
       'timeline': 'Demo order steps',
-      'upcoming': 'Next step',
+      'upcoming': 'Upcoming step',
+      'preceding': 'Earlier step',
       'unknownStatus': 'Unknown status. Try refreshing again.',
       'connection':
           'Could not connect to the menu. Check your connection and try again.',
@@ -296,7 +302,7 @@ String _statusLabel(String locale, String status) {
       'cancelled': 'Cancelled',
     },
   };
-  return labels[locale]?[status] ?? status;
+  return labels[locale]?[status] ?? _copy(locale, 'unknownStatus');
 }
 
 String _statusExplanation(String locale, String status) {
@@ -477,6 +483,17 @@ class _BrowseScreenState extends State<BrowseScreen> {
         const SizedBox(height: 12),
         Text(_copy(locale, 'intro'),
             style: const TextStyle(color: _muted, height: 1.5)),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => TrackingScreen(state: state),
+            )),
+            icon: const Icon(Icons.route_outlined),
+            label: Text(_copy(locale, 'track')),
+          ),
+        ),
         const SizedBox(height: 22),
         TextField(
           onChanged: (value) => setState(() => filter = value),
@@ -1346,7 +1363,8 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
     updatedAt =
         (widget.order['updatedAt'] ?? widget.order['createdAt']) as String;
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _refresh(automatic: true));
     _startPolling();
   }
 
@@ -1370,13 +1388,13 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
   @override
   void didPopNext() {
     routeVisible = true;
-    _refresh();
+    _refresh(automatic: true);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState lifecycle) {
     if (lifecycle == AppLifecycleState.resumed) {
-      if (routeVisible) _refresh();
+      if (routeVisible) _refresh(automatic: true);
     } else {
       _stopPolling();
     }
@@ -1387,21 +1405,25 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
     polling = null;
   }
 
-  void _startPolling() {
-    _stopPolling();
-    if (!routeVisible || status == 'completed' || status == 'cancelled') return;
-    polling = Timer.periodic(const Duration(seconds: 15), (_) {
-      final lifecycle = WidgetsBinding.instance.lifecycleState;
-      if (routeVisible &&
-          (lifecycle == null || lifecycle == AppLifecycleState.resumed)) {
-        _refresh();
-      }
-    });
+  bool get _foreground {
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    return routeVisible &&
+        (lifecycle == null || lifecycle == AppLifecycleState.resumed);
   }
 
-  Future<void> _refresh() async {
-    if (inFlight || status == 'completed' || status == 'cancelled') return;
-    inFlight = true;
+  bool get _terminal => status == 'completed' || status == 'cancelled';
+
+  void _startPolling() {
+    _stopPolling();
+    if (!_foreground || _terminal) return;
+    polling =
+        Timer(const Duration(seconds: 15), () => _refresh(automatic: true));
+  }
+
+  Future<void> _refresh({bool automatic = false}) async {
+    if (!_foreground || inFlight || (automatic && _terminal)) return;
+    _stopPolling();
+    setState(() => inFlight = true);
     try {
       final result =
           await widget.state.track(widget.order['orderCode'] as String);
@@ -1412,15 +1434,16 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
         lastChecked = DateTime.now();
         refreshError = null;
       });
-      _startPolling();
     } catch (_) {
       if (mounted) {
         setState(() =>
             refreshError = _copy(widget.state.locale, 'trackingConnection'));
-        _startPolling();
       }
     } finally {
-      inFlight = false;
+      if (mounted) {
+        setState(() => inFlight = false);
+        _startPolling();
+      }
     }
   }
 
@@ -1466,6 +1489,19 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
             tracking: true,
             lastChecked: lastChecked,
             refreshError: refreshError,
+            refreshing: inFlight,
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => _refresh(),
+            icon: inFlight
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh),
+            label: Text(_copy(locale, inFlight ? 'refreshing' : 'refresh')),
           ),
           const SizedBox(height: 18),
           ElevatedButton.icon(
@@ -1540,13 +1576,13 @@ class _TrackingScreenState extends State<TrackingScreen>
   @override
   void didPopNext() {
     _routeVisible = true;
-    if (order != null) _lookup(silent: true);
+    if (order != null) _lookup();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      if (_routeVisible && order != null) _lookup(silent: true);
+      if (_routeVisible && order != null) _lookup();
     } else {
       _stopPolling();
     }
@@ -1557,16 +1593,19 @@ class _TrackingScreenState extends State<TrackingScreen>
     _polling = null;
   }
 
+  bool get _foreground {
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    return _routeVisible &&
+        (lifecycle == null || lifecycle == AppLifecycleState.resumed);
+  }
+
   void _startPolling() {
     _stopPolling();
-    if (!_routeVisible) return;
-    _polling = Timer.periodic(const Duration(seconds: 15), (_) {
-      final lifecycle = WidgetsBinding.instance.lifecycleState;
-      if (_routeVisible &&
-          (lifecycle == null || lifecycle == AppLifecycleState.resumed)) {
-        _lookup(silent: true);
-      }
-    });
+    if (!_foreground ||
+        order == null ||
+        order!['status'] == 'completed' ||
+        order!['status'] == 'cancelled') return;
+    _polling = Timer(const Duration(seconds: 15), () => _lookup());
   }
 
   @override
@@ -1612,7 +1651,7 @@ class _TrackingScreenState extends State<TrackingScreen>
           ),
           const SizedBox(height: 12),
           ElevatedButton.icon(
-            onPressed: loading ? null : () => _lookup(),
+            onPressed: () => _lookup(),
             icon: const Icon(Icons.search),
             label: Text(_copy(locale, 'find')),
           ),
@@ -1623,7 +1662,7 @@ class _TrackingScreenState extends State<TrackingScreen>
           if (order != null) ...[
             const SizedBox(height: 20),
             OutlinedButton.icon(
-              onPressed: loading ? null : () => _lookup(),
+              onPressed: () => _lookup(),
               icon: loading
                   ? const SizedBox(
                       width: 16,
@@ -1639,7 +1678,7 @@ class _TrackingScreenState extends State<TrackingScreen>
                 child: Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    '${_copy(locale, 'lastChecked')}: ${_formatTrackingTime(lastChecked!.toIso8601String(), locale)}',
+                    '${_copy(locale, 'lastChecked')}: ${_formatTrackingTime(lastChecked!.toIso8601String(), locale)}${loading ? ' · ${_copy(locale, 'refreshing')}' : ''}',
                     style: const TextStyle(color: _muted, fontSize: 12),
                   ),
                 ),
@@ -1672,15 +1711,15 @@ class _TrackingScreenState extends State<TrackingScreen>
     );
   }
 
-  Future<void> _lookup({bool silent = false}) async {
-    if (_inFlight || code.text.trim().isEmpty) return;
+  Future<void> _lookup() async {
+    if (!_foreground || _inFlight || code.text.trim().isEmpty) return;
+    _stopPolling();
     _inFlight = true;
     final revision = ++_lookupRevision;
-    if (mounted && !silent)
-      setState(() {
-        loading = true;
-        error = null;
-      });
+    setState(() {
+      loading = true;
+      error = null;
+    });
     try {
       final result = await widget.state.track(code.text);
       if (mounted && revision == _lookupRevision) {
@@ -1689,32 +1728,26 @@ class _TrackingScreenState extends State<TrackingScreen>
           lastChecked = DateTime.now();
           error = null;
         });
-        if (result['status'] == 'completed' ||
-            result['status'] == 'cancelled') {
-          _stopPolling();
-        } else {
-          _startPolling();
-        }
       }
     } catch (exception) {
-      if (mounted && revision == _lookupRevision)
+      if (mounted && revision == _lookupRevision) {
         setState(() {
-          if (order != null) {
-            error = _copy(widget.state.locale, 'trackingConnection');
-          } else if (exception is ApiException && exception.statusCode == 404) {
+          if (order == null &&
+              exception is ApiException &&
+              exception.statusCode == 404) {
             error = _copy(widget.state.locale, 'notFound');
           } else {
-            error = _copy(widget.state.locale, 'trackingConnection');
+            error = _copy(widget.state.locale,
+                order == null ? 'lookupConnection' : 'trackingConnection');
           }
         });
-      if (order != null &&
-          order!['status'] != 'completed' &&
-          order!['status'] != 'cancelled') {
-        _startPolling();
       }
     } finally {
       _inFlight = false;
-      if (mounted && !silent) setState(() => loading = false);
+      if (mounted) {
+        setState(() => loading = false);
+        _startPolling();
+      }
     }
   }
 }
@@ -1732,6 +1765,7 @@ class _ResultCard extends StatelessWidget {
     this.tracking = false,
     this.lastChecked,
     this.refreshError,
+    this.refreshing = false,
   });
 
   final OrderState state;
@@ -1745,6 +1779,7 @@ class _ResultCard extends StatelessWidget {
   final bool tracking;
   final DateTime? lastChecked;
   final String? refreshError;
+  final bool refreshing;
 
   @override
   Widget build(BuildContext context) {
@@ -1782,7 +1817,7 @@ class _ResultCard extends StatelessWidget {
                 Semantics(
                   liveRegion: true,
                   child: Text(
-                    '${_copy(locale, 'lastChecked')}: ${_formatTrackingTime(lastChecked!.toIso8601String(), locale)}',
+                    '${_copy(locale, 'lastChecked')}: ${_formatTrackingTime(lastChecked!.toIso8601String(), locale)}${refreshing ? ' · ${_copy(locale, 'refreshing')}' : ''}',
                     style: const TextStyle(color: _muted, fontSize: 11),
                   ),
                 ),
@@ -1930,8 +1965,10 @@ class _StatusTimeline extends StatelessWidget {
         const SizedBox(height: 10),
         for (var index = 0; index < path.length; index++)
           Semantics(
+            container: true,
+            excludeSemantics: true,
             label:
-                '${_statusLabel(locale, path[index])}${index == current ? ', ${_copy(locale, 'status')}' : ''}',
+                '${_statusLabel(locale, path[index])}, ${_copy(locale, index < current ? 'preceding' : index == current ? 'status' : 'upcoming')}',
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 5),
               child: Row(
@@ -1948,7 +1985,7 @@ class _StatusTimeline extends StatelessWidget {
                   const SizedBox(width: 9),
                   Expanded(
                     child: Text(
-                      _statusLabel(locale, path[index]),
+                      '${_statusLabel(locale, path[index])} · ${_copy(locale, index < current ? 'preceding' : index == current ? 'status' : 'upcoming')}',
                       style: TextStyle(
                         color: index == current ? _text : _muted,
                         fontWeight: index == current
@@ -1957,9 +1994,6 @@ class _StatusTimeline extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (index == current)
-                    Text(_copy(locale, 'status'),
-                        style: const TextStyle(color: _orange, fontSize: 11)),
                 ],
               ),
             ),

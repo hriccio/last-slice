@@ -24,6 +24,19 @@ export const deliveryFee = 800;
 export interface CartLine {flavorId:string;sizeId:SizeId;crustId:CrustId;removedIngredientIds:string[];extraToppingIds:string[];quantity:number}
 export interface OrderRequest {idempotencyKey:string;locale:Locale;fulfillment:Fulfillment;customer:{name:string;phone:string};address?:{street:string;number:string;neighborhood:string;city:string;state:string;complement?:string;reference?:string};lines:CartLine[]}
 export interface PricedLine extends CartLine {unitPrice:number;lineTotal:number}
+export interface OrderTrackingResponse {
+  orderCode:string;
+  createdAt:string;
+  updatedAt:string;
+  status:Status;
+  statusKey:string;
+  fulfillment:Fulfillment;
+  lines:PricedLine[];
+  subtotal:number;
+  deliveryFee:number;
+  total:number;
+  demoOnly:true;
+}
 export function calculate(lines:CartLine[], fulfillment:Fulfillment) {
   const priced:PricedLine[] = lines.map(line => {
     const flavor = flavors.find(f=>f.id===line.flavorId); if(!flavor) throw new Error('unknown_flavor');

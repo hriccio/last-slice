@@ -88,6 +88,24 @@ KITCHEN_BOARD_TOKEN=choose-a-local-demo-token make dev
 
 Enter the same token in the board. It is held in browser memory only and is cleared when the page reloads or the operator signs out. Do not expose a publicly reachable demo board with a shared token or use this access method for real restaurant operations. With Supabase configured, status changes persist across API restarts; without it, orders and status changes exist only for the API process lifetime.
 
+## Customer order tracking
+
+Choose **Track an order** from the React website or Flutter menu, or continue directly from confirmation with the order code already populated. Confirmation and tracking check the API every 15 seconds after the previous check finishes while visible. Checks pause when the view is hidden or covered, and resume with a fresh lookup. Completed and cancelled demo orders stop polling; manual refresh remains available. Failed refreshes keep the last loaded order and offer a retry.
+
+The timeline follows pickup or delivery and shows the current server status, rather than a historical event log. Its update time describes only the current status. Preparation, payment, pickup, and delivery remain simulated.
+
+Run the tracking regression checks from the repository root:
+
+```sh
+npx playwright install chromium
+npm run test:tracking
+cd apps/mobile
+flutter test
+flutter analyze
+```
+
+To use an installed Chromium instead of downloading the test browser, run `CHROMIUM_EXECUTABLE=/path/to/chromium npm run test:tracking`. The browser tests start their own web server on port 5179 and use controlled API responses; the API tests start isolated processes and a Supabase response fixture without real credentials. See the [spec 007 acceptance record](specs/007-customer-order-tracking/validation.md) for build and device validation.
+
 ## Contextual assistant
 
 The optional assistant is available from menu browsing, customization, cart, and checkout in the React and Flutter clients. It only provides information; customers make and review all selections in the ordering controls. Assistant conversation text is not persisted or written to order records.
