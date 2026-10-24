@@ -35,7 +35,7 @@ async function setup(page:Page, locale:keyof typeof text = 'en-US') {
   await page.route('http://127.0.0.1:34117/**', async route => {
     const path = new URL(route.request().url()).pathname;
     if (path === '/menu') {
-      return route.fulfill({json:{flavors, sizes, extras, crusts:[{id:'traditional', surcharge:0},{id:'stuffed', surcharge:crustSurcharge}], deliveryFee}});
+      return route.fulfill({json:{publicDemo:false,flavors, sizes, extras, crusts:[{id:'traditional', surcharge:0},{id:'stuffed', surcharge:crustSurcharge}], deliveryFee}});
     }
     if (path === '/orders' && route.request().method() === 'POST') return route.fulfill({status:201, json:order});
     checks.push(await page.evaluate(() => Date.now()));

@@ -1,71 +1,54 @@
-import React,{useMemo,useState}from'react';
-import{ArrowRight,Check,LogOut,RefreshCw,Shield,Utensils}from'lucide-react';
-import{extras,flavors,sizes,type Locale,type Status}from'@last-slice/contracts';
-import'./kitchen.css';
-
-type KitchenLine={flavorId:string;sizeId:string;crustId:string;removedIngredientIds:string[];extraToppingIds:string[];quantity:number;unitPrice:number;lineTotal:number};
-type KitchenOrder={orderCode:string;createdAt:string;locale:Locale;fulfillment:'pickup'|'delivery';status:Status;lines:KitchenLine[];subtotal:number;deliveryFee:number;total:number};
-type BoardFilter='active'|'all'|Status;
+import {useEffect,useRef,useState} from 'react';
+import {flavors,sizes,extras,staffMessage,type KitchenOrder,type StaffEvent,type Locale,type Status} from '@last-slice/contracts';
+import {LegacyKitchenApp} from './LegacyKitchenApp';
 const api=import.meta.env.VITE_API_URL||'http://localhost:3001';
-const activeStatuses:Status[]=['received','confirmed','preparing','ready_for_pickup','out_for_delivery'];
-const steps:Status[]=['received','confirmed','preparing','ready_for_pickup','out_for_delivery','completed'];
-const text={
- 'pt-BR':{title:'Quadro da cozinha',brand:'THE LAST SLICE · DEMONSTRAÇÃO',language:'Idioma',token:'Token da cozinha',tokenHint:'Informe o token configurado no servidor',connect:'Acessar quadro',connecting:'Conectando…',refresh:'Atualizar pedidos',leave:'Sair',filter:'Filtrar pedidos',active:'Em andamento',all:'Todos',completed:'Concluídos',received:'Recebido',confirmed:'Confirmado',preparing:'Em preparo',ready_for_pickup:'Pronto para retirada',out_for_delivery:'Saiu para entrega',cancelled:'Cancelado',pickup:'Retirada',delivery:'Entrega',empty:'Nenhum pedido neste filtro.',items:'Itens',total:'Total',next:'Avançar para',confirm:'Confirmação',confirmText:'Atualizar o status demonstrativo do pedido',updated:(code:string,status:string)=>`Pedido ${code} atualizado para ${status}.`,error:'Não foi possível carregar ou atualizar. Tente novamente.',unauthorized:'Token inválido. Confira o token e tente novamente.',unavailable:'O acesso ao quadro não está configurado no servidor.',conflict:'O pedido mudou desde a última atualização. O quadro foi atualizado.',memory:'Modo local temporário: os pedidos desaparecem quando a API reiniciar.',supabase:'Pedidos demonstrativos salvos no Supabase.',demo:'Somente demonstração. Nenhum pedido real será preparado ou entregue.',order:'Pedido',languagePt:'Português',languageEn:'English',loading:'Carregando pedidos…',status:'Status',quantity:'un.',without:'Sem',extras:'Adicionais',traditional:'Massa tradicional',thin:'Massa fina',stuffed:'Massa recheada com Catupiry',time:(value:string)=>`Recebido ${value}`},
- 'en-US':{title:'Kitchen board',brand:'THE LAST SLICE · DEMO',language:'Language',token:'Kitchen token',tokenHint:'Enter the token configured on the server',connect:'Open board',connecting:'Connecting…',refresh:'Refresh orders',leave:'Sign out',filter:'Filter orders',active:'Active',all:'All',completed:'Completed',received:'Received',confirmed:'Confirmed',preparing:'Preparing',ready_for_pickup:'Ready for pickup',out_for_delivery:'Out for delivery',cancelled:'Cancelled',pickup:'Pickup',delivery:'Delivery',empty:'No orders match this filter.',items:'Items',total:'Total',next:'Advance to',confirm:'Confirm change',confirmText:'Update this demo order status',updated:(code:string,status:string)=>`Order ${code} advanced to ${status}.`,error:'Could not load or update orders. Try again.',unauthorized:'That token is invalid. Check it and try again.',unavailable:'Kitchen board access is not configured on the server.',conflict:'This order changed since the last refresh. The board has been updated.',memory:'Temporary local mode: orders disappear when the API restarts.',supabase:'Demo orders are stored in Supabase.',demo:'Demo only. No real order will be prepared or delivered.',order:'Order',languagePt:'Português',languageEn:'English',loading:'Loading orders…',status:'Status',quantity:'qty',without:'Without',extras:'Extras',traditional:'Traditional crust',thin:'Thin crust',stuffed:'Catupiry-stuffed crust',time:(value:string)=>`Received ${value}`}
+const statuses:Status[]=['received','confirmed','preparing','ready_for_pickup','out_for_delivery','completed','cancelled'];
+const copy={
+ 'pt-BR':{title:'Cozinha de demonstração',brand:'THE LAST SLICE · DEMONSTRAÇÃO',intro:'Uma cozinha compartilhada para assistir. Equipe, conversa e preparo são simulados; não há pagamento ou entrega real.',customer:'Fazer um pedido demonstrativo',staff:'Conversa da equipe simulada',empty:'A cozinha está tranquila. Os pedidos demonstrativos aparecerão aqui.',chatEmpty:'A equipe simulada vai conversar quando os pedidos avançarem.',refresh:'Atualizar quadro',refreshing:'Atualizando…',last:'Última consulta',error:'Não foi possível atualizar. Mantemos a última consulta; tente novamente.',unavailable:'A cozinha está indisponível agora. Tente atualizar.',all:'Todos',active:'Em andamento',filter:'Filtrar status',fulfillment:'Modalidade',pickup:'Retirada',delivery:'Entrega',received:'Recebido',confirmed:'Confirmado',preparing:'Em preparo',ready_for_pickup:'Pronto para retirada',out_for_delivery:'Saiu para entrega',completed:'Concluído',cancelled:'Cancelado',memory:'Prévia local temporária: reiniciar a API apaga estes pedidos.',stored:'Os pedidos fictícios expiram em até 24 horas.',readonly:'Somente leitura · equipe simulada',newMessages:'novas mensagens simuladas',latest:'Ver mensagens mais recentes',counter:'Atendimento fictício',cook:'Pizzaiolo fictício',oven:'Forno fictício',courier:'Entrega fictícia',items:'Itens',total:'Total',noOrders:'Nenhum pedido neste filtro.',data:'Sem cadastro. Usamos dados fictícios no checkout. Não envie dados pessoais no chat. As conversas com IA são transitórias no app; o provedor pode manter registros por até 30 dias. Logs de acesso dependem da hospedagem.'},
+ 'en-US':{title:'Demo kitchen',brand:'THE LAST SLICE · DEMO',intro:'One shared kitchen to watch. Staff, conversation and preparation are simulated; no real payment or delivery takes place.',customer:'Place a demo order',staff:'Simulated staff conversation',empty:'The kitchen is quiet. Demo orders will appear here.',chatEmpty:'Simulated staff will chat as orders progress.',refresh:'Refresh board',refreshing:'Refreshing…',last:'Last checked',error:'Could not refresh. Keeping the last snapshot; try again.',unavailable:'The kitchen is unavailable right now. Try refreshing.',all:'All',active:'Active',filter:'Filter status',fulfillment:'Fulfillment',pickup:'Pickup',delivery:'Delivery',received:'Received',confirmed:'Confirmed',preparing:'Preparing',ready_for_pickup:'Ready for pickup',out_for_delivery:'Out for delivery',completed:'Completed',cancelled:'Cancelled',memory:'Temporary local preview: restarting the API clears these orders.',stored:'Fictional orders expire within 24 hours.',readonly:'Read only · simulated staff',newMessages:'new simulated messages',latest:'Show latest messages',counter:'Fictional counter staff',cook:'Fictional pizza cook',oven:'Fictional oven staff',courier:'Fictional delivery staff',items:'Items',total:'Total',noOrders:'No orders match this filter.',data:'No registration. Checkout uses fictional data. Do not send personal details in chat. AI conversations are transient in the app; the provider may retain logs for up to 30 days. Access logs depend on hosting.'}
 };
-function money(cents:number,locale:Locale){return new Intl.NumberFormat(locale,{style:'currency',currency:'BRL'}).format(cents/100)}
-function statusName(locale:Locale,status:Status){return text[locale][status]}
-function nextStatus(order:KitchenOrder):Status|null{if(order.status==='received')return'confirmed';if(order.status==='confirmed')return'preparing';if(order.status==='preparing')return order.fulfillment==='pickup'?'ready_for_pickup':'out_for_delivery';if(order.status==='ready_for_pickup'||order.status==='out_for_delivery')return'completed';return null}
-function lineDescription(line:KitchenLine,locale:Locale){
- const flavor=flavors.find(item=>item.id===line.flavorId);const size=sizes.find(item=>item.id===line.sizeId);
- const flavorNames:Record<string,string>={mussarela:locale==='pt-BR'?'Muçarela':'Mozzarella',calabresa:locale==='pt-BR'?'Calabresa':'Calabresa sausage',portuguesa:locale==='pt-BR'?'Portuguesa':'Brazilian style',frango_catupiry:locale==='pt-BR'?'Frango com Catupiry':'Chicken with Catupiry',quatro_queijos:locale==='pt-BR'?'Quatro Queijos':'Four cheese'};
- const removed=line.removedIngredientIds.flatMap(id=>{const ingredient=flavor?.ingredients.find(item=>item[0]===id);return ingredient?[ingredient[locale==='pt-BR'?1:2]]:[]});
- const added=extras.filter(item=>line.extraToppingIds.includes(item.id)).map(item=>item.label[locale]);
- const words=[line.crustId==='stuffed'?text[locale].stuffed:line.crustId==='thin'?text[locale].thin:text[locale].traditional];
- if(removed.length)words.push(`${text[locale].without} ${removed.join(', ')}`);if(added.length)words.push(`${text[locale].extras}: ${added.join(', ')}`);
- return {title:`${line.quantity} × ${flavorNames[line.flavorId]??flavor?.name??line.flavorId} · ${size?.label[locale]??line.sizeId}`,detail:words.join(' · ')};
-}
-
 export function KitchenApp(){
- const [locale,setLocale]=useState<Locale>('pt-BR'),[token,setToken]=useState(''),[connected,setConnected]=useState(false),[orders,setOrders]=useState<KitchenOrder[]>([]),[filter,setFilter]=useState<BoardFilter>('active'),[persistence,setPersistence]=useState<'memory'|'supabase'>('memory'),[busy,setBusy]=useState(false),[busyCode,setBusyCode]=useState(''),[error,setError]=useState(''),[announcement,setAnnouncement]=useState('');
- const t=text[locale];
- const visibleOrders=useMemo(()=>filter==='active'?orders.filter(order=>activeStatuses.includes(order.status)):orders,[filter,orders]);
- const filteredGroups=useMemo(()=>filter==='active'?activeStatuses:filter==='all'?steps:[filter],[filter]);
- async function load(currentToken=token,selectedFilter:BoardFilter=filter){
-  setBusy(true);setError('');
-  try{
-   const query=selectedFilter==='all'||selectedFilter==='active'?'':`?status=${encodeURIComponent(selectedFilter)}`;
-   const response=await fetch(`${api}/kitchen/orders${query}`,{headers:{authorization:`Bearer ${currentToken}`}});const data=await response.json();
-   if(!response.ok){const code=data.error?.code;if(code==='kitchen_unavailable')setError(t.unavailable);else if(code==='kitchen_unauthorized'){setError(t.unauthorized);setConnected(false);}else setError(t.error);return false;}
-   setOrders(Array.isArray(data.orders)?data.orders:[]);setPersistence(data.persistence==='supabase'?'supabase':'memory');setConnected(true);return true;
-  }catch{setError(t.error);return false;}finally{setBusy(false);}
- }
- async function changeStatus(order:KitchenOrder){
-  const next=nextStatus(order);if(!next)return;
-  if(!window.confirm(`${t.confirm}: ${order.orderCode}\n${t.confirmText}?\n${statusName(locale,next)}`))return;
-  setBusyCode(order.orderCode);setError('');
-  try{
-   const response=await fetch(`${api}/kitchen/orders/${encodeURIComponent(order.orderCode)}/status`,{method:'PATCH',headers:{'content-type':'application/json',authorization:`Bearer ${token}`},body:JSON.stringify({expectedStatus:order.status,status:next})});const data=await response.json();
-   if(response.status===409){const refreshed=await load(token,filter);if(refreshed)setError(t.conflict);return;}
-   if(!response.ok){const code=data.error?.code;if(code==='kitchen_unauthorized'){setConnected(false);setError(t.unauthorized);}else if(code==='kitchen_unavailable')setError(t.unavailable);else setError(t.error);return;}
-   const refreshed=await load(token,filter);if(refreshed)setAnnouncement(t.updated(order.orderCode,statusName(locale,next)));
-  }catch{setError(t.error);}finally{setBusyCode('');}
- }
- function disconnect(){setToken('');setConnected(false);setOrders([]);setError('');}
- return <main className="kitchenPage">
-  <header className="kitchenHeader"><a className="kitchenBrand" href="/">THE LAST SLICE <span>· {t.brand.split('· ')[1]}</span></a><div className="kitchenHeaderActions"><label className="kitchenLanguage"><span>{t.language}</span><select aria-label={t.language} value={locale} onChange={event=>setLocale(event.target.value as Locale)}><option value="pt-BR">{t.languagePt}</option><option value="en-US">{t.languageEn}</option></select></label>{connected&&<button className="kitchenGhost" onClick={disconnect}><LogOut size={16}/>{t.leave}</button>}</div></header>
-  <section className="kitchenIntro"><div><p className="kitchenEyebrow"><Utensils size={15}/>{t.brand}</p><h1>{t.title}</h1><p>{t.demo}</p></div>{connected&&<button className="kitchenPrimary kitchenRefresh" disabled={busy} onClick={()=>load()}><RefreshCw size={16}/>{t.refresh}</button>}</section>
-  {!connected?<form className="kitchenAccess" onSubmit={event=>{event.preventDefault();void load(token)}}><div className="kitchenLock"><Shield size={20}/></div><label htmlFor="kitchen-token">{t.token}<input id="kitchen-token" type="password" autoComplete="off" required value={token} onChange={event=>setToken(event.target.value)} placeholder={t.tokenHint}/></label><button className="kitchenPrimary" disabled={busy||!token}>{busy?t.connecting:t.connect}<ArrowRight size={17}/></button>{error&&<p role="alert" className="kitchenError">{error}</p>}</form>:<>
-   <div className="kitchenToolbar"><label>{t.filter}<select value={filter} onChange={event=>{const value=event.target.value as BoardFilter;setFilter(value);void load(token,value)}}><option value="active">{t.active}</option><option value="all">{t.all}</option><option value="completed">{t.completed}</option>{steps.slice(0,5).map(status=><option key={status} value={status}>{statusName(locale,status)}</option>)}</select></label><span className="kitchenPersistence">{persistence==='supabase'?t.supabase:t.memory}</span></div>
-   <div className="kitchenDemoNotice">ⓘ {t.demo}</div>{announcement&&<p role="status" aria-live="polite" className="kitchenAnnouncement">{announcement}</p>}{error&&<p role="alert" className="kitchenError">{error}</p>}
-   {busy&&!orders.length?<p className="kitchenEmpty">{t.loading}</p>:<div className="kitchenBoardWrap"><div className="kitchenLanes">{filteredGroups.map(status=>{const group=visibleOrders.filter(order=>order.status===status);return <section className={`kitchenLane ${group.length?'':'isEmpty'}`} key={status}><header><div><span className={`kitchenLaneDot ${status}`}/><h2>{statusName(locale,status)}</h2></div><span className="kitchenLaneCount">{group.length}</span></header><div className="kitchenCards">{group.length?group.map(order=>{const next=nextStatus(order);return <article className="kitchenCard" key={order.orderCode}>
-    <div className="kitchenCardTop"><div><span className="kitchenOrderLabel">{t.order}</span><strong>{order.orderCode}</strong></div><span className={`kitchenStatus ${order.status}`}>{statusName(locale,order.status)}</span></div>
-    <p className="kitchenTime">{t.time(new Intl.DateTimeFormat(locale,{dateStyle:'medium',timeStyle:'short'}).format(new Date(order.createdAt)))}</p>
-    <div className="kitchenFulfillment">{order.fulfillment==='pickup'?t.pickup:t.delivery} · {order.locale}</div>
-    <div className="kitchenLines"><h3>{t.items}</h3>{order.lines.map((line,index)=>{const summary=lineDescription(line,order.locale);return <div className="kitchenLine" key={`${line.flavorId}-${index}`}><div><strong>{summary.title}</strong><p>{summary.detail}</p></div><b>{money(line.lineTotal,locale)}</b></div>})}</div>
-    <div className="kitchenTotal"><span>{t.total}</span><strong>{money(order.total,locale)}</strong></div>
-    {next&&<button className="kitchenPrimary kitchenNext" disabled={busyCode===order.orderCode} onClick={()=>void changeStatus(order)}>{busyCode===order.orderCode?t.connecting:`${t.next} ${statusName(locale,next)}`}<ArrowRight size={16}/></button>}
-   </article>}):<p className="kitchenLaneEmpty">{t.empty}</p>}</div></section>})}</div></div>}
-  </>}
+ const [mode,setMode]=useState<boolean|null>(null);
+ useEffect(()=>{let active=true;fetch(`${api}/config`).then(r=>r.ok?r.json():Promise.reject()).then(d=>{if(active)setMode(Boolean(d.publicDemo));}).catch(()=>{if(active)setMode(true);});return()=>{active=false;};},[]);
+ if(mode===false)return <LegacyKitchenApp/>;
+ if(mode===null)return <main className="publicKitchen"><p role="status">THE LAST SLICE · DEMO</p></main>;
+ return <PublicKitchen/>;
+}
+function PublicKitchen(){
+ const [locale,setLocale]=useState<Locale>(()=>localStorage.getItem('locale')==='en-US'?'en-US':'pt-BR'),[status,setStatus]=useState('active'),[fulfillment,setFulfillment]=useState('all');
+ const [orders,setOrders]=useState<KitchenOrder[]>([]),[events,setEvents]=useState<StaffEvent[]>([]),[checked,setChecked]=useState<Date|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(false),[persistence,setPersistence]=useState('memory'),[announcement,setAnnouncement]=useState(''),[unread,setUnread]=useState(0);
+ const t=copy[locale],refreshRef=useRef<()=>void>(()=>{}),feed=useRef<HTMLDivElement>(null),atBottom=useRef(true),seen=useRef<Set<string>|null>(null);
+ useEffect(()=>{localStorage.setItem('locale',locale);document.documentElement.lang=locale;},[locale]);
+ useEffect(()=>{
+  let active=true,inFlight=false,timer=0;let controller:AbortController;
+  const refresh=async()=>{
+   if(!active||inFlight||document.visibilityState!=='visible')return;
+   inFlight=true;window.clearTimeout(timer);controller=new AbortController();setBusy(true);
+   try{
+    const params=new URLSearchParams();if(!['active','all'].includes(status))params.set('status',status);if(fulfillment!=='all')params.set('fulfillment',fulfillment);
+    const response=await fetch(`${api}/kitchen/orders?${params}`,{signal:controller.signal});if(!response.ok)throw new Error();const data=await response.json();if(!active)return;
+    const fresh:StaffEvent[]=data.messages||[];const added=seen.current?fresh.filter(e=>!seen.current!.has(e.id)):[];seen.current=new Set(fresh.map(e=>e.id));
+    if(added.length){setAnnouncement(`${added.length} ${t.newMessages} · ${new Date(added.at(-1)!.createdAt).toLocaleTimeString(locale)}`);if(!atBottom.current)setUnread(n=>n+added.length);}
+    setOrders(data.orders);setEvents(fresh);setPersistence(data.persistence);setChecked(new Date());setError(false);
+   }catch{if(active)setError(true);}finally{inFlight=false;if(active){setBusy(false);timer=window.setTimeout(refresh,15000);}}
+  };
+  refreshRef.current=()=>void refresh();const visibility=()=>{window.clearTimeout(timer);if(document.visibilityState==='visible')void refresh();};
+  document.addEventListener('visibilitychange',visibility);void refresh();
+  return()=>{active=false;controller?.abort();window.clearTimeout(timer);document.removeEventListener('visibilitychange',visibility);};
+ },[locale,status,fulfillment]);
+ useEffect(()=>{if(atBottom.current&&feed.current)feed.current.scrollTop=feed.current.scrollHeight;},[events]);
+ const visible=orders.filter(o=>(status!=='active'||!['completed','cancelled'].includes(o.status))&&(fulfillment==='all'||o.fulfillment===fulfillment));
+ const money=(v:number)=>new Intl.NumberFormat(locale,{style:'currency',currency:'BRL'}).format(v/100);
+ return <main className="publicKitchen">
+  <header className="publicKitchenHeader"><div><p className="eyebrow">{t.brand}</p><h1>{t.title}</h1><p>{t.intro}</p></div><div className="publicKitchenLinks"><button onClick={()=>setLocale(locale==='pt-BR'?'en-US':'pt-BR')} aria-label={locale==='pt-BR'?'Switch to English':'Mudar para português'}>{locale==='pt-BR'?'PT / EN':'EN / PT'}</button><a href="/">{t.customer}</a></div></header>
+  <p className="publicKitchenNotice">{t.readonly} · {persistence==='memory'?t.memory:t.stored}</p>
+  <div className="publicKitchenControls"><label>{t.filter}<select aria-label={t.filter} value={status} onChange={e=>setStatus(e.target.value)}><option value="active">{t.active}</option><option value="all">{t.all}</option>{statuses.map(s=><option value={s} key={s}>{t[s]}</option>)}</select></label><label>{t.fulfillment}<select aria-label={t.fulfillment} value={fulfillment} onChange={e=>setFulfillment(e.target.value)}><option value="all">{t.all}</option><option value="pickup">{t.pickup}</option><option value="delivery">{t.delivery}</option></select></label><button aria-busy={busy} aria-disabled={busy} onClick={()=>refreshRef.current()}>{busy?t.refreshing:t.refresh}</button>{checked&&<span>{t.last}: <time dateTime={checked.toISOString()}>{checked.toLocaleTimeString(locale)}</time></span>}</div>
+  {error&&<p className="publicKitchenError" role="alert">{checked?t.error:t.unavailable}</p>}
+  <div className="publicKitchenLayout"><section aria-label={t.items} className="publicKitchenOrders">{!visible.length&&<p>{orders.length?t.noOrders:t.empty}</p>}{statuses.filter(s=>visible.some(o=>o.status===s)).map(stage=><section className="publicKitchenLane" key={stage}><h2>{t[stage]}</h2>{visible.filter(o=>o.status===stage).map(order=><article className="publicKitchenCard" key={order.orderCode}><header><strong>{order.orderCode}</strong><span>{order.fulfillment==='pickup'?t.pickup:t.delivery}</span></header>{order.lines.map((line,i)=>{
+   const flavor=flavors.find(f=>f.id===line.flavorId);const removed=flavor?.ingredients.filter(i=>line.removedIngredientIds.includes(i[0])).map(i=>i[locale==='pt-BR'?1:2])||[];const added=extras.filter(e=>line.extraToppingIds.includes(e.id)).map(e=>e.label[locale]);
+   return <p key={i}>{line.quantity} × {flavor?.name} · {sizes.find(s=>s.id===line.sizeId)?.label[locale]} · {line.crustId==='traditional'?(locale==='pt-BR'?'Massa tradicional':'Traditional crust'):line.crustId==='thin'?(locale==='pt-BR'?'Massa fina':'Thin crust'):(locale==='pt-BR'?'Borda de Catupiry':'Catupiry-stuffed crust')}{removed.length?` · ${locale==='pt-BR'?'Sem':'Without'} ${removed.join(', ')}`:''}{added.length?` · ${locale==='pt-BR'?'Adicionais':'Extras'}: ${added.join(', ')}`:''}</p>;
+  })}<footer><span>{t.total}</span><strong>{money(order.total)}</strong></footer></article>)}</section>)}</section>
+  <aside className="publicStaff"><h2>{t.staff}</h2><p>{t.readonly}</p><p className="srOnly" role="status" aria-live="polite">{announcement}</p><div className="publicStaffFeed" ref={feed} role="log" aria-label={t.staff} aria-live="off" tabIndex={0} onScroll={()=>{const el=feed.current!;atBottom.current=el.scrollHeight-el.clientHeight-el.scrollTop<30;if(atBottom.current)setUnread(0);}}>{!events.length&&<p>{t.chatEmpty}</p>}{events.map(event=><article key={event.id} className="publicStaffMessage"><header><strong>{event.speaker==='delivery'?t.courier:t[event.speaker]}</strong><time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleTimeString(locale)}</time></header><p>{staffMessage(event,locale)}</p></article>)}</div><button aria-label={t.latest} onClick={()=>{atBottom.current=true;feed.current?.scrollTo({top:feed.current.scrollHeight});setUnread(0);}}>{unread?`${unread} ${t.newMessages} · `:''}{t.latest}</button></aside></div>
+  <footer className="publicDataNotice">{t.data}</footer>
  </main>;
 }

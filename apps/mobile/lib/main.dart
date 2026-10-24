@@ -510,6 +510,14 @@ class _BrowseScreenState extends State<BrowseScreen> {
             label: Text(_copy(locale, 'track')),
           ),
         ),
+        if (state.publicDemo)
+          Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                  locale == 'pt-BR'
+                      ? 'Sem cadastro. O checkout usa dados fictícios. Não envie dados pessoais no chat; o provedor de IA pode manter registros por até 30 dias.'
+                      : 'No registration. Checkout uses fictional data. Do not share personal details in chat; the AI provider may retain logs for up to 30 days.',
+                  style: const TextStyle(color: _muted, fontSize: 11))),
         const SizedBox(height: 22),
         TextField(
           onChanged: (value) => setState(() => filter = value),
@@ -673,8 +681,8 @@ class _PizzaImage extends StatelessWidget {
     return SizedBox(
       height: height,
       width: double.infinity,
-      child: Image.network(
-        'https://images.unsplash.com/$photo?auto=format&fit=crop&w=1000&q=85',
+      child: Image.asset(
+        'assets/images/$photo.jpg',
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => Container(
           color: _surfaceLight,
@@ -1187,64 +1195,97 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 children: [
                   _DemoNotice(locale: locale),
                   const SizedBox(height: 22),
-                  _SectionTitle(_copy(locale, 'name')),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: name,
-                    textCapitalization: TextCapitalization.words,
-                    maxLength: 80,
-                    decoration:
-                        InputDecoration(labelText: _copy(locale, 'name')),
-                    validator: (value) => (value?.trim().length ?? 0) >= 2
-                        ? null
-                        : _copy(locale, 'validationName'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: phone,
-                    keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(
-                        labelText: _copy(locale, 'phone'),
-                        hintText: '(11) 99999-9999'),
-                    validator: (value) {
-                      final digits =
-                          (value ?? '').replaceAll(RegExp(r'\D'), '');
-                      return digits.length == 10 || digits.length == 11
-                          ? null
-                          : _copy(locale, 'validationPhone');
-                    },
-                  ),
-                  if (state.fulfillment == 'delivery') ...[
-                    const SizedBox(height: 24),
-                    _SectionTitle(_copy(locale, 'delivery')),
+                  if (state.publicDemo)
+                    Card(
+                        child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                      locale == 'pt-BR'
+                                          ? 'Dados fictícios da demonstração'
+                                          : 'Fictional demo details',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 18)),
+                                  const SizedBox(height: 10),
+                                  for (final key in [
+                                    'name',
+                                    'phone',
+                                    'address'
+                                  ])
+                                    Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 4),
+                                        child: Text(
+                                            '${(state.checkoutFixture[key] as Map?)?[locale] ?? (locale == 'pt-BR' ? 'Demonstração fictícia' : 'Fictional demo')}')),
+                                  const SizedBox(height: 10),
+                                  Text(locale == 'pt-BR'
+                                      ? 'Não informe nome, telefone ou endereço reais. Este pedido aparece no quadro público compartilhado da cozinha.'
+                                      : 'Do not provide a real name, phone number or address. This order appears on the shared public kitchen board.'),
+                                ])))
+                  else ...[
+                    _SectionTitle(_copy(locale, 'name')),
                     const SizedBox(height: 10),
-                    _requiredField(street, 'street', locale),
-                    const SizedBox(height: 12),
-                    Row(children: [
-                      Expanded(child: _requiredField(number, 'number', locale)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                          child: _requiredField(
-                              neighborhood, 'neighborhood', locale)),
-                    ]),
-                    const SizedBox(height: 12),
-                    Row(children: [
-                      Expanded(child: _requiredField(city, 'city', locale)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                          child: _requiredField(region, 'state', locale,
-                              maxLength: 2)),
-                    ]),
+                    TextFormField(
+                      controller: name,
+                      textCapitalization: TextCapitalization.words,
+                      maxLength: 80,
+                      decoration:
+                          InputDecoration(labelText: _copy(locale, 'name')),
+                      validator: (value) => (value?.trim().length ?? 0) >= 2
+                          ? null
+                          : _copy(locale, 'validationName'),
+                    ),
                     const SizedBox(height: 12),
                     TextFormField(
-                        controller: complement,
-                        decoration: InputDecoration(
-                            labelText: _copy(locale, 'complement'))),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                        controller: reference,
-                        decoration: InputDecoration(
-                            labelText: _copy(locale, 'reference'))),
+                      controller: phone,
+                      keyboardType: TextInputType.phone,
+                      decoration: InputDecoration(
+                          labelText: _copy(locale, 'phone'),
+                          hintText: '(11) 99999-9999'),
+                      validator: (value) {
+                        final digits =
+                            (value ?? '').replaceAll(RegExp(r'\D'), '');
+                        return digits.length == 10 || digits.length == 11
+                            ? null
+                            : _copy(locale, 'validationPhone');
+                      },
+                    ),
+                    if (state.fulfillment == 'delivery') ...[
+                      const SizedBox(height: 24),
+                      _SectionTitle(_copy(locale, 'delivery')),
+                      const SizedBox(height: 10),
+                      _requiredField(street, 'street', locale),
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        Expanded(
+                            child: _requiredField(number, 'number', locale)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                            child: _requiredField(
+                                neighborhood, 'neighborhood', locale)),
+                      ]),
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        Expanded(child: _requiredField(city, 'city', locale)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                            child: _requiredField(region, 'state', locale,
+                                maxLength: 2)),
+                      ]),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                          controller: complement,
+                          decoration: InputDecoration(
+                              labelText: _copy(locale, 'complement'))),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                          controller: reference,
+                          decoration: InputDecoration(
+                              labelText: _copy(locale, 'reference'))),
+                    ],
                   ],
                   const SizedBox(height: 24),
                   _SectionTitle(_copy(locale, 'orderDetails')),

@@ -3,13 +3,19 @@ API_BASE_URL ?= http://localhost:3001
 CHROME_EXECUTABLE ?= chromium
 ANDROID_API_BASE_URL ?= http://10.0.2.2:3001
 
-.PHONY: dev dev-ai api api-ai flutter flutter-get flutter-web-server flutter-build-web flutter-local android android-build
+.PHONY: dev dev-ai dev-public dev-public-ai api api-ai flutter flutter-get flutter-web-server flutter-build-web flutter-local android android-build
 
 # Start the API and web app for local development.
 dev:
 	npm run dev
 
 # Start only the API when you do not already run it with `npm run dev`.
+dev-public:
+	npm run dev:public
+
+dev-public-ai:
+	npm run dev:public:ai
+
 dev-ai:
 	npm run dev:ai
 

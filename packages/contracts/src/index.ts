@@ -68,3 +68,30 @@ export interface AssistantContext {
   screen:'menu'|'customization'|'cart'|'checkout'; selection?:CartLine;
   cartLines?:CartLine[]; fulfillment?:Fulfillment;
 }
+
+export const demoCheckoutFixtures = {
+ 'demo-pickup':{id:'demo-pickup',name:{'pt-BR':'Cliente fictício de demonstração','en-US':'Fictional demo customer'},phone:{'pt-BR':'Sem telefone — demonstração','en-US':'No phone — demo'},address:{'pt-BR':'Retirada simulada, sem endereço real','en-US':'Simulated pickup, no real address'}},
+ 'demo-delivery':{id:'demo-delivery',name:{'pt-BR':'Cliente fictício de demonstração','en-US':'Fictional demo customer'},phone:{'pt-BR':'Sem telefone — demonstração','en-US':'No phone — demo'},address:{'pt-BR':'Destino fictício de demonstração — não entregável','en-US':'Fictional demo destination — not deliverable'}},
+} as const;
+export interface PublicOrderRequest {idempotencyKey:string;locale:Locale;fulfillment:Fulfillment;fixtureId:keyof typeof demoCheckoutFixtures;lines:CartLine[]}
+export interface KitchenOrder {orderCode:string;createdAt:string;locale:Locale;fulfillment:Fulfillment;status:Status;lines:PricedLine[];subtotal:number;deliveryFee:number;total:number}
+export type StaffRole='counter'|'cook'|'oven'|'delivery';
+export interface StaffEvent {id:string;orderCode:string;createdAt:string;speaker:StaffRole;templateKey:Exclude<Status,'received'|'cancelled'>;args:{flavorIds:string[]}}
+export function staffMessage(event:StaffEvent,locale:Locale){
+ const pt=locale==='pt-BR',code=event.orderCode;
+ const pizza=event.args.flavorIds.map(id=>flavors.find(f=>f.id===id)?.name).filter(Boolean).join(', ');
+ const text:Record<string,string>=pt?{
+  confirmed:event.speaker==='counter'?`Pedido demonstrativo ${code} confirmado. Cozinha, pode começar.`:`Pode deixar! Vou separar os ingredientes de ${code}.`,
+  preparing:event.speaker==='cook'?`Preparando ${pizza} para o pedido demonstrativo ${code}.`:`Forno reservado para ${code}. Tudo por aqui é simulado.`,
+  ready_for_pickup:event.speaker==='oven'?`Pedido demonstrativo ${code} pronto para retirada simulada.`:`Vou sinalizar ${code} no quadro de retirada.`,
+  out_for_delivery:event.speaker==='delivery'?`Rota de demonstração de ${code} em andamento. Sem entrega real.`:`Pedido demonstrativo ${code} saiu para entrega simulada.`,
+  completed:event.speaker==='counter'?`Pedido demonstrativo ${code} concluído. Próximo!`:`Encerrando a simulação de ${code}.`,
+ }:{
+  confirmed:event.speaker==='counter'?`Demo order ${code} confirmed. Kitchen, you can start.`:`Got it! I'll gather the ingredients for ${code}.`,
+  preparing:event.speaker==='cook'?`Preparing ${pizza} for demo order ${code}.`:`Oven reserved for ${code}. Everything here is simulated.`,
+  ready_for_pickup:event.speaker==='oven'?`Demo order ${code} is ready for simulated pickup.`:`I'll mark ${code} on the pickup board.`,
+  out_for_delivery:event.speaker==='delivery'?`Demo route for ${code} is under way. No real delivery.`:`Demo order ${code} is out for simulated delivery.`,
+  completed:event.speaker==='counter'?`Demo order ${code} completed. Next one!`:`Wrapping up the simulation for ${code}.`,
+ };
+ return text[event.templateKey]||'';
+}

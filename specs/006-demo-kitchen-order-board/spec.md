@@ -1,6 +1,6 @@
 # 006 — Public demo kitchen and simulated staff
 
-**Status:** Revised on 2026-10-24 — public read-only board, automatic fictional staff, and staff feed specified; implementation and acceptance pending
+**Status:** Public board, fake staff, staff feed, and fictional checkout implemented; integrated release acceptance in progress
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [001 — Web demo ordering journey](../001-web-demo-ordering/spec.md), [002 — Flutter customer client](../002-mobile-demo-ordering/spec.md)
 **Integrates with:** [005 — Contextual assistant](../005-contextual-ai-assistant/spec.md), [007 — Customer tracking](../007-customer-order-tracking/spec.md)
 
@@ -10,7 +10,7 @@ Public visitors can watch one shared fictional kitchen at `/kitchen`, including 
 
 Customers can create fictional pizza orders through the customer clients and watch those same orders progress on the shared kitchen board and their tracking view. No visitor account or identity is needed. Public checkout uses generated fictional details instead of collecting names, phone numbers, or addresses.
 
-This revision replaces the earlier public-facing operator-token and manual-transition direction. The repository currently implements that earlier manual board; it does not yet implement this revised public contract. Existing private/manual mode may remain available for development, but public mode must expose no status-writing route, even to a browser holding the old shared token.
+This revision replaces the earlier public-facing operator-token and manual-transition direction. The earlier manual board is retained only as a private development mode; production requires public-demo mode and Supabase. Existing private/manual mode may remain available for development, but public mode must expose no status-writing route, even to a browser holding the old shared token.
 
 ## Scope
 
@@ -50,7 +50,7 @@ This revision replaces the earlier public-facing operator-token and manual-trans
 - Public board reads require no identity or authentication. An anonymous session credential, if needed elsewhere for resource controls, is only a short-lived capability: it must not grant kitchen write access, identify a person, or be correlated across sessions/devices.
 - In public mode, client calls to kitchen mutation routes fail with `403 kitchen_read_only`, including requests carrying the old operator token. Never publish a shared staff credential or put a privileged credential in browser code, a URL, or storage.
 - Any retained private/manual development mode must be explicitly separated from public mode. A public-mode configuration error must not open a write path.
-- Public-mode order creation accepts the supported order choices and fixture identifiers only. The API resolves fictional checkout fields itself; it rejects unexpected personal/contact/address fields rather than persisting arbitrary input or echoing it in an error. Update request validation/contracts and both clients together.
+- Public-mode order creation accepts the supported order choices, an opaque UUID/hex idempotency token, and fixture identifiers only. The API stores a digest of that token, not free-form visitor input. The API resolves fictional checkout fields itself; it rejects unexpected personal/contact/address fields rather than persisting arbitrary input or echoing it in an error. Update request validation/contracts and both clients together.
 - Public reads include only orders whose fictional-fixture origin was established by the server. Do not expose legacy/private-mode records merely because they share the same table.
 - Fixtures must be unmistakably fictional, with no usable personal phone number, real recipient, or deliverable street address. Public UI must not invite visitors to replace them with their own details.
 - Minimize public application logs to content-free outcomes/timing and aggregate capacity metrics. Do not log request bodies, conversation content, supplied credentials, or stable visitor profiles. Avoid analytics/fingerprinting and unnecessary third-party asset requests.
@@ -97,7 +97,7 @@ The API owns transitions. Customer clients and the public board never calculate 
 
 - In public mode, `GET /kitchen/orders?status={status}` returns the same sanitized summary fields as the prior board: `orderCode`, `createdAt`, `locale`, `fulfillment`, `status`, canonical priced lines, `subtotal`, `deliveryFee`, and `total`, with an explicit demo/simulation mode indicator. Return at most the 100 most recent unexpired orders, active first, then newest first.
 - Unknown filters return the existing `400 validation_error` envelope. Public responses contain no identity, address, payload, idempotency, scheduling secret, or service credential.
-- Add a public read-only staff-event lookup, `GET /kitchen/messages`, returning the bounded safe event/template contract described above and no customer conversation.
+- A board response may include the same atomic staff-event snapshot so displayed messages do not race a separately fetched order snapshot. Add a public read-only staff-event lookup, `GET /kitchen/messages`, returning the bounded safe event/template contract described above and no customer conversation.
 - `PATCH /kitchen/orders/{orderCode}/status` is unavailable to clients in public mode (`403 kitchen_read_only`). The simulation calls an internal authoritative transition operation; it does not authenticate through a publicly exposed staff endpoint.
 - `GET /orders/{orderCode}` retains Spec 007's privacy-limited response, `updatedAt`, demo-only flag, and unknown/expired-code `404 order_not_found` envelope. The simulation changes the source of server transitions, not client authority or the tracking response shape.
 - Both public board views use bounded foreground polling no more often than every 15 seconds, with immediate initial/manual/resume refresh, no overlapping lookups, and last-successful snapshot retention on failures.
@@ -126,3 +126,7 @@ The API owns transitions. Customer clients and the public board never calculate 
 - The staff side chat is a simulated read-only feed. Natural free-form customer conversation belongs only in the separate assistant.
 - Checkout uses generated fictional data; visitors are not asked to identify themselves.
 - Privacy work minimizes collection and retention rather than claiming an automatic LGPD/GDPR exemption.
+
+## Implementation checkpoint
+
+The runtime uses `KITCHEN_MODE=public-demo` (automatic in production), private service-role SQL functions, and the API's five-second worker. `202610240002_public_demo_simulation.sql` preserves private legacy rows, atomically writes stages/events, and installs cleanup with Supabase pg_cron when available. The initial runtime remains a single API process as specified for volatile assistant payloads. Deterministic SQL tests execute the actual migration and exercise source isolation, competing ticks, overdue stages after restart, terminal handling, and expiry. React/Flutter public checkout contains no editable contact/address fields. Full built-client evidence is recorded during final release acceptance.

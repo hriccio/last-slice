@@ -11,7 +11,21 @@ npm install
 make dev
 ```
 
-This starts the API at `http://localhost:3001` and web app at `http://localhost:5173`. Without Supabase credentials, the API keeps demo orders in memory for local preview. For persisted demo orders, create a Supabase project, apply `supabase/migrations/202610220001_demo_ordering.sql` and then `supabase/migrations/202610220002_kitchen_order_status.sql`, then start the API with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` set in the environment. Keep the service role key private. The API may be pointed at a different URL with `VITE_API_URL` when building the web client.
+This starts the API at `http://localhost:3001` and React at `http://localhost:5173`, using the legacy private/manual kitchen and labeled fake assistant for ordinary local development.
+
+For the new public demo, use:
+
+```sh
+make dev-public
+# With the real vault-backed assistant and configured Supabase:
+make dev-public-ai
+```
+
+Public mode uses fictional checkout details, a shared read-only `/kitchen`, randomized server-side preparation, and a simulated staff conversation. No visitor registration, contact details, or staff token are needed. The local memory preview is temporary; restarting the API clears its orders.
+
+For durable demo data and paid AI, configure a Supabase project and apply every file in `supabase/migrations/` in filename order. Supply `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` only to the API runtime. `202610240001_assistant_budget_queue.sql` installs the private budget/queue coordinator; `202610240002_public_demo_simulation.sql` adds source isolation, preparation scheduling, staff events, expiry, and a five-minute cleanup job when Supabase's `pg_cron` extension is available. The API also cleans expired demo rows every minute while running. Verify the named `last-slice-demo-cleanup` job before public launch.
+
+`NODE_ENV=production` requires Supabase and public-demo mode; it cannot open the manual operator path. Public mutations of kitchen state return `403 kitchen_read_only`, even with an old operator token. Paid AI additionally requires the accepted OpenAI configuration and durable accounting. All secrets belong in the runtime secret store, not a client bundle or committed `.env`. See `.env.example` for placeholders. Set `VITE_API_URL` for the React build and `API_BASE_URL` for Flutter; use HTTPS for published clients/API.
 
 ## Build
 
@@ -78,17 +92,13 @@ The APK is written to `apps/mobile/build/app/outputs/flutter-apk/app-debug.apk`.
 
 The API does not return customer contact or address data from order tracking. No payment credentials are collected.
 
-### Demo kitchen board
+### Public kitchen board
 
-The operator board is available at `http://localhost:5173/kitchen`. It requires a server-side demo token; start the dev stack with a token of your choice:
+Open `http://localhost:5173/kitchen` after `make dev-public`. Everyone sees the same fictional orders and read-only staff feed. Fake staff advance statuses in the API, using randomized bounded stage delays, independently of open browsers. Board and tracking refresh while visible. Both the board and staff feed retain their last successful snapshot on connection failures; scrolling up in the staff conversation is preserved when new messages arrive.
 
-```sh
-KITCHEN_BOARD_TOKEN=choose-a-local-demo-token make dev
-```
+Public orders expire after 24 hours; queries exclude expired data immediately, and the scheduled/API cleanup removes it. Older manual-mode records are excluded from all public reads. Staff messages use reviewed localized templates and never consume paid AI requests. Images and fonts are served locally; [asset provenance and licenses](apps/web/public/ASSET-CREDITS.md) are included.
 
-Enter the same token in the board. It is held in browser memory only and is cleared when the page reloads or the operator signs out. Do not expose a publicly reachable demo board with a shared token or use this access method for real restaurant operations. With Supabase configured, status changes persist across API restarts; without it, orders and status changes exist only for the API process lifetime.
-
-The revised [spec 006](specs/006-demo-kitchen-order-board/spec.md) defines the next public experience: one shared read-only kitchen, server-side fake staff with randomized preparation times, and a simulated staff conversation beside the board. Public checkout will use generated fictional details. That revision is specified but not implemented; the token-protected manual board described above is the current behavior.
+For private local development only, `make dev` plus `KITCHEN_BOARD_TOKEN` retains the earlier manual board. That token is held in browser memory and cannot authorize writes in public mode.
 
 ## Customer order tracking
 

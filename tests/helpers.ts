@@ -29,6 +29,10 @@ export async function rpcFixture(t:any,db:PGlite){
     const keys=Object.keys(input);const placeholders=keys.map((k,i)=>`${k}=>$${i+1}`).join(',');
     if(!/^[a-z_]+$/.test(name)||keys.some(k=>!/^p_[a-z_]+$/.test(k)))throw new Error('bad RPC');
     const rows=await db.query(`select public.${name}(${placeholders}) value`,Object.values(input));result=(rows.rows[0] as any).value;
+   }else if(url.pathname==='/rest/v1/demo_orders'){
+    const code=url.searchParams.get('order_code')?.replace(/^eq\./,'');
+    const filter=url.searchParams.get('public_demo')==='eq.true';
+    result=(await db.query(`select order_data,status,created_at,updated_at from demo_orders where order_code=$1 ${filter?'and public_demo and expires_at>clock_timestamp()':''}`,[code])).rows;
    }else if(url.pathname==='/rest/v1/demo_menu'){result=(await db.query('select * from demo_menu where available')).rows;}
    else throw new Error('Unexpected fixture route');
    res.setHeader('content-type','application/json');res.end(JSON.stringify(result));

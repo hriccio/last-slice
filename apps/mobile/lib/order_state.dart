@@ -13,6 +13,10 @@ class OrderState extends ChangeNotifier {
   final ApiClient api;
   String locale = 'pt-BR';
   String fulfillment = 'pickup';
+  bool publicDemo = true;
+  Json checkoutFixtures = {};
+  Json get checkoutFixture =>
+      (checkoutFixtures['demo-$fulfillment'] as Json?) ?? {};
   MenuCatalog? menu;
   PriceQuote? cartQuote;
   final List<CartLine> cart = [];
@@ -56,7 +60,11 @@ class OrderState extends ChangeNotifier {
     menu = null;
     notifyListeners();
     try {
-      menu = MenuCatalog.fromJson(await api.get('/menu?locale=$locale'));
+      final data = await api.get('/menu?locale=$locale');
+      publicDemo = data['publicDemo'] == true;
+      checkoutFixtures = (data['checkoutFixtures'] as Json?) ?? {};
+      if (publicDemo) checkoutFields.clear();
+      menu = MenuCatalog.fromJson(data);
     } catch (_) {
       menuError = 'connection';
     } finally {
@@ -170,8 +178,9 @@ class OrderState extends ChangeNotifier {
     final payload = {
       'locale': locale,
       'fulfillment': fulfillment,
-      'customer': {'name': name, 'phone': phone},
-      if (fulfillment == 'delivery') 'address': address,
+      if (publicDemo) 'fixtureId': 'demo-$fulfillment',
+      if (!publicDemo) 'customer': {'name': name, 'phone': phone},
+      if (!publicDemo && fulfillment == 'delivery') 'address': address,
       'lines': cart.map((line) => line.toJson()).toList(),
     };
     final fingerprint = jsonEncode(payload);
@@ -378,12 +387,13 @@ class OrderState extends ChangeNotifier {
       final response = await api.assistantRequest(
           'DELETE', '/assistant/requests/${ticket['requestId']}',
           capability: _capability());
-      if (revision == _assistantRevision && assistantTicket?['requestId'] == ticket['requestId']) {
+      if (revision == _assistantRevision &&
+          assistantTicket?['requestId'] == ticket['requestId']) {
         _applyAssistantState(response);
         notifyListeners();
       }
     } catch (_) {
-      if(revision != _assistantRevision)return;
+      if (revision != _assistantRevision) return;
       assistantError = 'assistant_unavailable';
       notifyListeners();
     }
