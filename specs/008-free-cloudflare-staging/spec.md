@@ -1,6 +1,6 @@
 # 008 — Free Cloudflare staging for Flutter PWA validation
 
-**Status:** Local release build and Cloudflare assets dry run pass; remote publication pending Cloudflare CLI authorization and temporary API tunnel startup
+**Status:** PWA published on Workers Free; static asset and cross-origin menu checks pass; demo checkout and Browserling iOS validation remain
 **Depends on:** [002 — Flutter cross-platform demo ordering](../002-mobile-demo-ordering/spec.md), [003 — Flutter Web PWA customer client](../003-flutter-web-pwa/spec.md), [006 — Demo kitchen order board](../006-demo-kitchen-order-board/spec.md)
 
 ## Goal
@@ -17,10 +17,10 @@ Publish the Flutter Web/PWA client at a public Cloudflare URL so iOS browser tes
 ## Acceptance criteria
 
 - [x] The Flutter Web release build and Cloudflare assets-only dry run succeed with a caller-supplied HTTPS API origin.
-- [ ] The published PWA is served from a `workers.dev` URL without adding a custom domain or paid Cloudflare resource.
+- [x] The published PWA is served from a `workers.dev` URL without adding a custom domain or paid Cloudflare resource.
 - [ ] The PWA loads its menu and completes a fictional public-demo checkout through the HTTPS Quick Tunnel while the local public API is running.
-- [ ] Both locales, manifest, icons, service worker, and standalone startup shell are present at the staging URL.
-- [ ] Cloudflare account remains on Workers Free and no metered AI, database, or other paid product is used.
+- [x] Both locales, manifest, icons, service worker, and standalone startup shell are present at the staging URL.
+- [x] Cloudflare account remains on Workers Free and no metered AI, database, or other paid product is used.
 
 ## Non-goals
 
