@@ -147,6 +147,7 @@ String _copy(String locale, String key) {
       'unknownStatus': 'Status desconhecido. Tente atualizar novamente.',
       'connection':
           'Não foi possível conectar ao cardápio. Confira a conexão e tente novamente.',
+      'retry': 'Tentar novamente',
       'validationName': 'Informe seu nome.',
       'validationPhone': 'Informe um celular válido com DDD.',
       'validationAddress': 'Preencha este campo.',
@@ -246,6 +247,7 @@ String _copy(String locale, String key) {
       'unknownStatus': 'Unknown status. Try refreshing again.',
       'connection':
           'Could not connect to the menu. Check your connection and try again.',
+      'retry': 'Retry',
       'validationName': 'Enter your name.',
       'validationPhone': 'Enter a valid phone with area code.',
       'validationAddress': 'This field is required.',
@@ -452,6 +454,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
                 : menu == null
                     ? _LoadError(
                         message: _copy(locale, 'connection'),
+                        retryLabel: _copy(locale, 'retry'),
                         retry: state.loadMenu,
                       )
                     : _browseBody(context, state, menu, locale),
@@ -2427,9 +2430,14 @@ class _AssistantSheetState extends State<_AssistantSheet>
 }
 
 class _LoadError extends StatelessWidget {
-  const _LoadError({required this.message, required this.retry});
+  const _LoadError({
+    required this.message,
+    required this.retryLabel,
+    required this.retry,
+  });
 
   final String message;
+  final String retryLabel;
   final VoidCallback retry;
 
   @override
@@ -2445,7 +2453,7 @@ class _LoadError extends StatelessWidget {
               const SizedBox(height: 14),
               OutlinedButton(
                   onPressed: retry,
-                  child: const Text('Retry / Tentar novamente')),
+                  child: Text(retryLabel)),
             ],
           ),
         ),

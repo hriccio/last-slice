@@ -1,6 +1,6 @@
 # 003 — Flutter Web PWA customer client
 
-**Status:** Implemented and built; published HTTPS installation acceptance pending
+**Status:** Local acceptance validated; published HTTPS installation acceptance pending
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [001 — Web demo ordering journey](../001-web-demo-ordering/spec.md), [002 — Flutter cross-platform demo ordering](../002-mobile-demo-ordering/spec.md)
 
 ## Outcome
@@ -78,12 +78,12 @@ Flutter's `web-server` debugging mode may have reduced debugger support; it is a
 
 - [x] `flutter build web --release` compiles the same Flutter ordering source used by native targets.
 - [x] The app launches in Chromium and loads the localized API menu.
-- [ ] The app can complete the spec 002 ordering journey in both locales, including a demo order and status lookup.
+- [x] The app can complete the spec 002 ordering journey in both locales, including a demo order and status lookup.
 - [x] Browser quote totals agree with the API, and no order can be presented as real payment or fulfillment.
 - [x] The web manifest parses and contains the required app metadata, standalone mode, and 192px/512px icons.
 - [ ] A compatible browser offers installation when the app is served over HTTPS; the installed app opens directly into the Flutter ordering experience.
-- [ ] The layout remains usable at desktop and narrow phone viewport sizes.
-- [ ] When the API is unavailable, the app shows localized errors and does not fabricate menu data, prices, or successful orders.
+- [x] The layout remains usable at desktop and narrow phone viewport sizes.
+- [x] When the API is unavailable, the app shows localized errors and does not fabricate menu data, prices, or successful orders.
 - [x] No privileged Supabase credentials are present in the web build or Flutter source.
 
 ## Decisions fixed by this spec
@@ -92,3 +92,15 @@ Flutter's `web-server` debugging mode may have reduced debugger support; it is a
 - The Flutter ordering flow is authored once in Dart for web and future Android/iOS targets.
 - The PWA is network-dependent. Offline ordering and service-worker caching are not part of this slice.
 - The API remains authoritative; the PWA introduces no new business logic or endpoints.
+
+## Local validation
+
+Rechecked on 2026-10-25:
+
+- `flutter analyze` passed, all 20 widget tests passed, and `flutter build web --release --dart-define=API_BASE_URL=http://localhost:3001` succeeded.
+- Completed the public-demo browse → customize → cart → fictional checkout → confirmation → tracking journey in `pt-BR` and `en-US` against the local API. Confirmation showed the demo-only notice and tracking reused the order code.
+- Inspected the app at 390×844 and 1365×768 viewports. The menu, customization, and bottom actions remained visible and usable.
+- Stopped the API and verified the menu showed a localized connection error without fixture menu/prices; a failed order submission retained the checkout summary and retryable state without showing success. Widget tests cover both locales' initial API-down message and retry label.
+- This exposed and fixed the bilingual retry label in the menu error state.
+
+HTTPS installation and standalone Home Screen launch remain staging checks. The local run does not emulate iOS Safari.
