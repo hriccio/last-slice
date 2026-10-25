@@ -42,6 +42,112 @@ class OrderState extends ChangeNotifier {
   int _assistantRevision = 0;
   String _assistantContextKey = '';
 
+  Json? assistantProposal;
+  Json? assistantProposalDraft;
+  bool assistantApplying = false;
+  bool assistantApplied = false;
+  int _cartRevision = 0;
+  final Map<String, String> _cartLineIds = {};
+  final Set<String> _appliedProposals = {};
+  String _proposalBase = '';
+  Json get cartSnapshot => {
+        'revision': _cartRevision,
+        'fulfillment': fulfillment,
+        'lines': cart
+            .map((line) => {
+                  ...line.toJson(),
+                  'lineId': line.lineId ??
+                      _cartLineIds.putIfAbsent(
+                          line.key, () => _newIdempotencyKey()),
+                })
+            .toList(),
+      };
+  Json currentAssistantContext(Json context) => {
+        ...context,
+        'cartSnapshot': cartSnapshot,
+        if (assistantProposalDraft != null)
+          'draftProposal': assistantProposalDraft,
+        'cartLines': cart.map((line) => line.toJson()).toList(),
+        'fulfillment': fulfillment,
+      };
+  bool get proposalStale =>
+      assistantProposal != null &&
+      (_proposalBase != jsonEncode(cartSnapshot) ||
+          DateTime.tryParse('${assistantProposal!['expiresAt']}')
+                  ?.isAfter(DateTime.now()) !=
+              true);
+  void dismissAssistantProposal({bool keepDraft = false}) {
+    if (!keepDraft) assistantProposalDraft = null;
+    final proposal = assistantProposal;
+    if (proposal != null && _assistantCapability != null) {
+      unawaited(api
+          .assistantRequest('DELETE', '/assistant/proposals/${proposal['id']}',
+              capability: _capability())
+          .catchError((_) => <String, dynamic>{}));
+    }
+    assistantProposal = null;
+    assistantApplied = false;
+    notifyListeners();
+  }
+
+  Future<bool> applyAssistantProposal() async {
+    final proposal = assistantProposal;
+    if (proposal == null ||
+        assistantApplying ||
+        _appliedProposals.contains(proposal['id'])) return false;
+    if (proposalStale) {
+      assistantError = 'proposal_stale';
+      notifyListeners();
+      return false;
+    }
+    final snapshot = cartSnapshot, revision = _assistantRevision;
+    assistantApplying = true;
+    assistantError = null;
+    notifyListeners();
+    try {
+      final response = await api.assistantRequest(
+          'POST', '/assistant/proposals/${proposal['id']}/confirm',
+          capability: _capability(), payload: {'cartSnapshot': snapshot});
+      if (revision != _assistantRevision) return false;
+      if (jsonEncode(snapshot) != jsonEncode(cartSnapshot))
+        throw const ApiException('proposal_stale', 409);
+      final result = response['proposal'] as Json;
+      final newLines = (result['lines'] as List).map((raw) {
+        final l = raw as Json;
+        return CartLine(
+            lineId: l['lineId'] as String,
+            flavorId: l['flavorId'] as String,
+            sizeId: l['sizeId'] as String,
+            crustId: l['crustId'] as String,
+            removedIngredientIds: List<String>.from(l['removedIngredientIds']),
+            extraToppingIds: List<String>.from(l['extraToppingIds']),
+            quantity: l['quantity'] as int);
+      }).toList();
+      final quote = PriceQuote.fromJson(result['quote'] as Json);
+      if (!_appliedProposals.add(proposal['id'] as String)) return false;
+      _quoteRevision++;
+      _cartRevision++;
+      cart
+        ..clear()
+        ..addAll(newLines);
+      cartQuote = newLines.isEmpty ? null : quote;
+      quoteLoading = false;
+      quoteError = null;
+      _idempotencyKey = null;
+      _idempotencyFingerprint = null;
+      assistantApplied = true;
+      assistantProposalDraft = null;
+      assistantProposal = result;
+      return true;
+    } catch (_) {
+      if (revision == _assistantRevision) assistantError = 'proposal_stale';
+      return false;
+    } finally {
+      assistantApplying = false;
+      if (revision == _assistantRevision) notifyListeners();
+    }
+  }
+
   String? menuError;
   String? quoteError;
   String? _idempotencyKey;
@@ -82,6 +188,7 @@ class OrderState extends ChangeNotifier {
   Future<void> setFulfillment(String value) async {
     if (fulfillment == value) return;
     fulfillment = value;
+    _cartRevision++;
     notifyListeners();
     await refreshQuote();
   }
@@ -143,6 +250,7 @@ class OrderState extends ChangeNotifier {
     }
     final quote = await quoteLines(proposed);
     if (quote == null) return false;
+    _cartRevision++;
     cart
       ..clear()
       ..addAll(proposed);
@@ -157,6 +265,7 @@ class OrderState extends ChangeNotifier {
   Future<void> updateQuantity(String key, int quantity) async {
     final index = cart.indexWhere((item) => item.key == key);
     if (index == -1) return;
+    _cartRevision++;
     if (quantity < 1) {
       cart.removeAt(index);
     } else {
@@ -193,6 +302,7 @@ class OrderState extends ChangeNotifier {
         ...payload,
         'idempotencyKey': _idempotencyKey,
       });
+      _cartRevision++;
       cart.clear();
       cartQuote = null;
       _idempotencyKey = null;
@@ -234,12 +344,14 @@ class OrderState extends ChangeNotifier {
 
   Future<bool> sendAssistantMessage(String message, Json context) async {
     final text = message.trim();
-    if (text.isEmpty || assistantLoading) return false;
+    if (text.isEmpty || assistantLoading || assistantApplying) return false;
     if (utf8.encode(text).length > 1200) {
       assistantError = 'assistant_input_too_large';
       notifyListeners();
       return false;
     }
+    context = currentAssistantContext(context);
+    dismissAssistantProposal(keepDraft: true);
     assistantContextChanged(context);
     final signature =
         jsonEncode({'message': text, 'context': context, 'locale': locale});
@@ -311,6 +423,12 @@ class OrderState extends ChangeNotifier {
     assistantStale =
         _assistantSubmission?['contextKey'] != _assistantContextKey ||
             _assistantSubmission?['selectionRevision'] != _selectionRevision;
+    assistantProposal = response['proposal'] as Json?;
+    assistantProposalDraft = assistantProposal?['candidate'] as Json?;
+    assistantApplied = false;
+    _proposalBase = jsonEncode((_assistantSubmission?['payload']
+        as Json?)?['context']?['cartSnapshot']);
+    if (response['proposalError'] != null) assistantError = 'proposal_invalid';
     assistantTicket = null;
     assistantLoading = false;
     assistantDraft = '';
@@ -400,6 +518,7 @@ class OrderState extends ChangeNotifier {
   }
 
   void clearAssistantConversation() {
+    dismissAssistantProposal();
     if (assistantTicket != null) {
       unawaited(api
           .assistantRequest(

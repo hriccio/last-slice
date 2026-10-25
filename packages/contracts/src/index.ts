@@ -60,11 +60,12 @@ export interface AssistantTicket {
   requestId:string; state:AssistantState; pollAfterSeconds:number;
   position?:number; estimatedWaitSeconds?:number; estimatedReplySeconds?:number;
   recentAverageReplySeconds?:number; estimateUpdatedAt?:string;
-  reply?:string; disclaimer?:true; mode?:'provider'|'development_fake';
+  proposal?:CartProposal; proposalError?:string; reply?:string; disclaimer?:true; mode?:'provider'|'development_fake';
   error?:string; resetsAt?:string;
 }
 export interface AssistantTurn {role:'user'|'assistant';content:string}
 export interface AssistantContext {
+  cartSnapshot?:CartSnapshot; draftProposal?:ProposalCandidate;
   screen:'menu'|'customization'|'cart'|'checkout'; selection?:CartLine;
   cartLines?:CartLine[]; fulfillment?:Fulfillment;
 }
@@ -95,3 +96,11 @@ export function staffMessage(event:StaffEvent,locale:Locale){
  };
  return text[event.templateKey]||'';
 }
+
+// Reviewed cart proposals: client-owned cart, server-validated canonical result.
+export interface CartSnapshot {revision:number;fulfillment:Fulfillment;lines:(CartLine&{lineId:string})[]}
+export interface ProposalCandidate {operation:'add'|'update'|'remove';targetLineId:string|null;line:CartLine|null}
+export interface CartProposal {candidate:ProposalCandidate;id:string;requestId:string;operation:ProposalCandidate['operation'];targetLineId:string|null;baseFingerprint:string;baseRevision:number;expiresAt:string;fulfillment:Fulfillment;summary:string;beforeSummary?:string;lines:CartSnapshot['lines'];quote:{lines:PricedLine[];subtotal:number;deliveryFee:number;total:number}}
+
+export interface ProposalConfirmationRequest {cartSnapshot:CartSnapshot}
+export interface ProposalConfirmationResponse {proposal:CartProposal}

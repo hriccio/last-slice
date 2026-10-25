@@ -1,3 +1,4 @@
+import {ProposalStore,cartSnapshot,cartLine} from './assistant-proposals.js';
 import {createServer} from 'node:http';
 import {createHash,randomBytes,timingSafeEqual} from 'node:crypto';
 import {Buffer} from 'node:buffer';
@@ -43,6 +44,17 @@ async function assistantMenu(locale:'pt-BR'|'en-US'){
   const ingredients=flavor.ingredients.filter(([id])=>!row||row.ingredients.includes(id)).map(item=>item[locale==='pt-BR'?1:2]);
   return {name:row?.display_name??flavor.name,description:row?.descriptions?.[locale]??flavor.descriptions[locale],ingredients,sizes:sizes.map(size=>size.label[locale])};
  });
+}
+const proposals=new ProposalStore();
+async function proposalMenu(){
+ let rows:any[]=flavors.map(f=>({id:f.id,ingredients:f.ingredients.map(i=>i[0]),prices_brl_cents:f.prices,available:true}));
+ if(db){const result=await db.from('demo_menu').select('id,display_name,descriptions,ingredients,prices_brl_cents,available');if(result.error)throw new Error('assistant_unavailable');rows=result.data||[];}
+ return {signature:createHash('sha256').update(JSON.stringify(rows.sort((a,b)=>a.id.localeCompare(b.id)))).digest('hex'),availableIds:rows.filter(r=>r.available).map(r=>r.id),rows};
+}
+async function presentAssistant(ticket:any,cap:string){
+ const {candidate,...safe}=ticket;
+ if(ticket.state==='completed'&&candidate){try{const proposal=await proposals.present(ticket.requestId,cap,candidate,await proposalMenu());return {...safe,...(proposal?{proposal}:{})};}catch{return {...safe,proposalError:'proposal_invalid'};}}
+ return safe;
 }
 function validPhone(phone:string){return /^\d{10,11}$/.test(phone.replace(/\D/g,''))}
 function statusKey(status:Status){return `status.${status}`}
@@ -161,13 +173,24 @@ const server=createServer(async(req,res)=>{
   if(Date.now()-controlWindow>=60000){controlWindow=Date.now();controlCalls=0;}
   if(++controlCalls>600)return send(res,429,{...safeError('assistant_queue_full',429).body,retryAfterSeconds:60});
  }
+ const proposalMatch=url.pathname.match(/^\/assistant\/proposals\/([a-f0-9-]{36})(\/confirm)?$/i);
+ if(proposalMatch&&['POST','DELETE'].includes(req.method||'')){
+  try{
+   const cap=conversationCapability(req.headers.authorization);
+   if(req.method==='DELETE'&&!proposalMatch[2]){proposals.discard(proposalMatch[1],cap);return send(res,200,{dismissed:true});}
+   if(req.method!=='POST'||!proposalMatch[2])return send(res,404,safeError('not_found',404).body);
+   const input=await body(req);if(!input||Object.keys(input).some(k=>k!=='cartSnapshot'))throw new Error('proposal_invalid');
+   const proposal=proposals.confirm(proposalMatch[1],cap,cartSnapshot(input.cartSnapshot),await proposalMenu());
+   return send(res,200,{proposal});
+  }catch(e){const code=e instanceof Error&&['proposal_expired','proposal_stale','proposal_invalid'].includes(e.message)?e.message:'proposal_invalid';return send(res,code==='proposal_expired'?410:code==='proposal_stale'?409:400,safeError(code).body);}
+ }
  const ticketMatch=url.pathname.match(/^\/assistant\/requests\/([a-f0-9-]{36})$/i);
  if(ticketMatch&&['GET','DELETE'].includes(req.method||'')){
   try{
    if(!assistantQueue)throw new Error('assistant_unavailable');
    const cap=conversationCapability(req.headers.authorization);
    const ticket=await assistantQueue.status(ticketMatch[1],cap,req.method==='DELETE');
-   return send(res,200,ticket);
+   return send(res,200,await presentAssistant(ticket,cap));
   }catch(e){return assistantError(res,e);}
  }
  if(req.method==='POST'&&url.pathname==='/assistant/messages'){
@@ -199,6 +222,18 @@ const server=createServer(async(req,res)=>{
    if(!Array.isArray(cartLines)||cartLines.length>10||!['pickup','delivery'].includes(input.context?.fulfillment))fields['context.cartLines']='validation.assistant_context';
    else if(cartLines.length){try{const quote=calculate(cartLines,input.context.fulfillment);context.quote={subtotalBrlCents:quote.subtotal,deliveryFeeBrlCents:quote.deliveryFee,totalBrlCents:quote.total,lines:quote.lines.map(line=>({flavor:flavors.find(f=>f.id===line.flavorId)?.name,size:sizes.find(s=>s.id===line.sizeId)?.label[assistantLocale],quantity:line.quantity,lineTotalBrlCents:line.lineTotal}))};}catch{fields['context.cartLines']='validation.assistant_context';}}
   }
+  let snapshot:ReturnType<typeof cartSnapshot>|undefined;
+  if(input.context?.cartSnapshot!==undefined){try{
+   snapshot=cartSnapshot(input.context.cartSnapshot);
+   const menu=await proposalMenu();if(snapshot.lines.some(l=>!menu.availableIds.includes(l.flavorId)))throw new Error();
+   context.cartSnapshot=snapshot;
+   const draft=input.context.draftProposal;
+   if(draft){
+    if(Object.keys(draft).some(k=>!['operation','targetLineId','line'].includes(k))||!['add','update','remove'].includes(draft.operation)||draft.operation==='add'&&draft.targetLineId!==null||draft.operation!=='add'&&!snapshot.lines.some(l=>l.lineId===draft.targetLineId))throw new Error();
+    context.draftProposal={operation:draft.operation,targetLineId:draft.targetLineId,line:draft.operation==='remove'?null:cartLine(draft.line)};
+   }
+   context.proposalMenu={flavors:flavors.filter(f=>menu.availableIds.includes(f.id)).map(f=>({id:f.id,name:f.name,ingredients:f.ingredients.map(i=>({id:i[0],name:i[assistantLocale==='pt-BR'?1:2]}))})),sizes:sizes.map(s=>({id:s.id,name:s.label[assistantLocale]})),crusts:['traditional','thin','stuffed'],extras:extras.map(e=>({id:e.id,name:e.label[assistantLocale]}))};
+  }catch{fields['context.cartSnapshot']='validation.assistant_context';}}
   if(Object.keys(fields).length)return send(res,400,safeError('validation_error',400,fields).body);
   try{
    if(assistantProvider==='fake'&&process.env.NODE_ENV!=='production')return send(res,200,{reply:fakeAssistantReply(assistantLocale,input.message,context),mode:'development_fake',disclaimer:true});
@@ -206,9 +241,10 @@ const server=createServer(async(req,res)=>{
    if(!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(input.requestId||''))throw new Error('validation_error');
    if(!queuedFake)assertAssistantConfigured();
    const cap=conversationCapability(req.headers.authorization);
+   if(snapshot)proposals.register(input.requestId,cap,snapshot,assistantLocale);
    const messages=prepareAssistant(assistantLocale,input.history,input.message.trim(),context);
    const ticket=await assistantQueue.submit(input.requestId,cap,messages);
-   return send(res,202,ticket);
+   return send(res,202,await presentAssistant(ticket,cap));
   }catch(e){return assistantError(res,e);}
  }
  if(req.method==='GET'&&url.pathname==='/menu'){

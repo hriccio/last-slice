@@ -1,6 +1,6 @@
 # 009 — Assistant-guided cart configuration
 
-**Status:** Draft — proposed behavior for review; not implemented
+**Status:** Implemented; automated and real-provider staging validation recorded; new-card human screen-reader review pending
 **Depends on:** [000 — Foundation](../000-foundation/spec.md), [001 — Web ordering](../001-web-demo-ordering/spec.md), [002 — Flutter ordering](../002-mobile-demo-ordering/spec.md), [005 — Contextual assistant](../005-contextual-ai-assistant/spec.md), [006 — Public demo](../006-demo-kitchen-order-board/spec.md)
 
 ## Goal
@@ -38,14 +38,14 @@ For “sem cebola” or “remove that pizza,” use the selected line only when
 
 ## Product and contract rules
 
-- Preserve the foundation's explicit-review requirement. This spec proposes superseding Spec 005's advice-only/cart-edit exclusion only for reviewed, customer-confirmed cart proposals. Spec 005 remains the implemented contract until this draft is accepted and implemented.
+- Preserve the foundation's explicit-review requirement. This accepted spec supersedes Spec 005's advice-only/cart-edit exclusion only for reviewed, customer-confirmed cart proposals.
 - Use structured, bounded model output with an allowlist of cart proposal operations and supported identifiers. Never execute arbitrary tool names, URLs, code, SQL, or instructions from model text. Informational replies can omit a proposal.
 - The API validates every proposed flavor, size, crust, removal, extra, quantity, and target line. Apply the same availability and validation rules used by direct ordering; reject unsupported or unavailable choices without changing the cart.
 - Cart state remains client-owned. The API validates a submitted cart snapshot, constructs a proposed resulting cart, and quotes it through existing authoritative pricing code. Do not introduce persistent server carts or duplicate business rules in clients.
 - Shared TypeScript contracts define proposal operations, canonical lines, quote, identifiers, and errors; Dart mirrors the wire contract. Client adapters apply the validated result to their existing cart state.
 - Each proposal includes an opaque identifier, its source request, a server-verified base-cart revision/fingerprint, any target line identifier, and an expiry of at most five minutes. Bind it to the existing transient conversation capability. Keep proposals in bounded process memory alongside ticket results; no cart/chat persistence or new database tables are required.
 - Distinguish cart revision from content identity: stable session line identifiers identify edit targets even when selections change. Clients include the relevant line identity and current configuration when requesting a proposal. The server validates both; no cross-conversation proposal is usable.
-- Confirm through a deterministic API operation that rechecks ownership, expiry, base cart, and current menu/quote, then returns the canonical resulting lines and totals. Confirmation must not call the provider, enqueue paid work, or create an order. Exact route and wire fields must be finalized in contracts before implementation.
+- Confirm through a deterministic API operation that rechecks ownership, expiry, base cart, and current menu/quote, then returns the canonical resulting lines and totals. Confirmation must not call the provider, enqueue paid work, or create an order. Use `POST /assistant/proposals/{id}/confirm` with `{cartSnapshot}` and the conversation bearer capability; return `{proposal}` with canonical lines/quote. `DELETE /assistant/proposals/{id}` dismisses a proposal. Shared `CartSnapshot`, `ProposalCandidate`, and `CartProposal` types define the wire fields; completed assistant tickets include an optional `proposal`. `proposal_invalid`, `proposal_stale`, and `proposal_expired` are localized recoverable errors.
 - If the customer edits the cart while a reply is queued or a proposal is pending, invalidate the proposal. Explain that the cart changed and offer a fresh proposal from current state; never overwrite intervening edits. A changed price/availability requires a refreshed review and another explicit confirmation.
 - Treat confirmation as idempotent: repeated clicks, client/network retries, and repeated completed-ticket retrieval apply the same proposal at most once. Disable Apply while confirmation is pending and record applied proposal identifiers in client session memory. An expired/lost proposal requires a new review rather than reconstruction from free text.
 - Use the existing duplicate-line and quantity rules. Adding the same configuration merges according to the normal cart behavior; an update must preserve unrelated lines. Removing the last line leaves the normal empty-cart state.
@@ -61,17 +61,22 @@ For “sem cebola” or “remove that pizza,” use the selected line only when
 
 ## Acceptance criteria
 
-- [ ] Both clients can answer a question, clarify a configuration, and show a grounded proposal in both locales.
-- [ ] Reviewed add/update/quantity/remove proposals apply only after explicit confirmation and preserve unrelated cart state.
-- [ ] Every shown/applicable option and resulting total is validated by the API; unsupported identifiers and client/model prices are rejected.
-- [ ] Ambiguous targets cause clarification; stable line identity prevents editing the wrong configuration.
-- [ ] Stale carts, changed prices/availability, expiry, process restart, and conversation ownership prevent unsafe application.
-- [ ] Double confirmation, response replay, and retries never add a second pizza or repeat a removal; confirmation sends no paid request.
-- [ ] The structured checkout remains required to create a fictional order; chat cannot submit or modify an existing order.
-- [ ] Failures and closing/clearing chat preserve customer-confirmed cart state; direct ordering remains usable.
-- [ ] Proposal UI works with keyboard, screen readers, narrow layouts, and larger text.
-- [ ] Provider limits, privacy, durable daily cap, and 45-second global pacing remain enforced with the revised prompt/output.
+- [x] Both clients can answer a question, clarify a configuration, and show a grounded proposal in both locales.
+- [x] Reviewed add/update/quantity/remove proposals apply only after explicit confirmation and preserve unrelated cart state.
+- [x] Every shown/applicable option and resulting total is validated by the API; unsupported identifiers and client/model prices are rejected.
+- [x] Ambiguous targets cause clarification; stable line identity prevents editing the wrong configuration.
+- [x] Stale carts, changed prices/availability, expiry, process restart, and conversation ownership prevent unsafe application.
+- [x] Double confirmation, response replay, and retries never add a second pizza or repeat a removal; confirmation sends no paid request.
+- [x] The structured checkout remains required to create a fictional order; chat cannot submit or modify an existing order.
+- [x] Failures and closing/clearing chat preserve customer-confirmed cart state; direct ordering remains usable.
+- [ ] Proposal UI works with keyboard, screen readers, narrow layouts, and larger text. Keyboard, semantic labels/live regions, narrow layouts, and larger text are covered by automated checks; a human screen-reader audio review of the new card remains open.
+- [x] Provider limits, privacy, durable daily cap, and 45-second global pacing remain enforced with the revised prompt/output.
 
 ## Validation plan
 
 Use deterministic model responses to test API validation and cart operations without paid calls. Cover both locales in React and Flutter, including stale responses during queued work, ambiguous line targets, price changes, duplicate application, and preservation of unrelated lines. After acceptance and implementation, run a small explicitly bounded real-provider staging journey and verify the final cart/quote before ordinary demo checkout. Record actual paid usage without storing raw conversation content.
+
+
+## Implementation evidence
+
+See the [validation record](validation.md) for automated checks, live staging requests, costs, deployment versions, and remaining human/device checks.

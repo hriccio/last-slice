@@ -3,11 +3,11 @@
 **Status:** Implemented and locally validated; deployment gates recorded
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [001 — Web demo ordering journey](../001-web-demo-ordering/spec.md), [002 — Flutter cross-platform demo ordering](../002-mobile-demo-ordering/spec.md), [003 — Flutter Web PWA customer client](../003-flutter-web-pwa/spec.md)
 
-**Proposed extension:** [009 — Assistant-guided cart configuration](../009-assistant-cart-configuration/spec.md) drafts customer-reviewed cart proposals. It is not implemented and does not yet change this advice-only contract.
+**Accepted extension:** [009 — Assistant-guided cart configuration](../009-assistant-cart-configuration/spec.md) adds reviewed, customer-confirmed cart proposals. Its rules supersede advice-only restrictions below for clients supplying a cart snapshot; submitted orders remain outside assistant authority.
 
 ## Outcome
 
-Customers can open optional, contextual AI help while browsing or ordering through the React website or Flutter client. The assistant answers questions about the current demo menu and guides customers back to the structured flow. The API mediates all model access. The assistant cannot change a cart, submit an order, claim an order succeeded, or replace authoritative API data.
+Customers can open optional, contextual AI help while browsing or ordering through the React website or Flutter client. The assistant answers questions about the current demo menu and guides customers back to the structured flow. The API mediates all model access. Under Spec 009, the assistant may propose cart configurations for explicit customer confirmation. It cannot silently change a cart, submit an order, claim an order succeeded, or replace authoritative API data.
 
 This slice advances the product without requiring an iOS runner, Apple hardware, or Xcode. It applies to the existing web, PWA, and Android clients; the same API capability can be used by a future iOS client.
 
@@ -38,7 +38,7 @@ This slice advances the product without requiring an iOS runner, Apple hardware,
 1. The customer may open **Ask the pizzeria** from menu browsing, customization, cart, or checkout. The control is optional and does not block the structured ordering path.
 2. The assistant opens in the current locale and receives only the context needed for that screen: locale, current menu/options, and—when relevant—pizza selections and a current API quote summary.
 3. The customer can ask a question in natural language. The assistant responds in the selected locale, answers only within the supported demo scope, and can point to the relevant structured control.
-4. If a customer expresses a desired change (for example, a size or topping), the assistant explains how to make it in the UI. The customer performs and reviews the change through the existing controls.
+4. If a customer expresses a desired change, clients implementing Spec 009 may show an API-validated cart proposal with an explicit Apply action. Older clients receive advice pointing to the existing controls. Final checkout always remains a separate explicit customer action.
 5. The customer closes the assistant and continues at the same ordering step with the same cart and checkout fields.
 6. When AI capacity is occupied or the next budget-backed answer slot is not available yet, the message waits in the chat queue. The panel shows its queue position and estimated reply time, plus a recent observed average when enough samples exist. The customer can cancel a waiting message or continue using the structured ordering controls.
 
@@ -130,7 +130,7 @@ The API uses a provider adapter selected through server configuration. Provider 
 - [x] Opening, using, or closing the assistant preserves the selected step, cart, quote, and checkout fields.
 - [x] The assistant can explain supported menu ingredients and options in `pt-BR` and `en-US` using API-provided context.
 - [x] Price answers use the current API quote or direct customers to the structured quote; client-provided price values are not trusted.
-- [x] The assistant cannot change cart/order state or invoke quote, order, or tracking mutations on the customer's behalf.
+- [x] The assistant cannot silently change cart/order state or create orders. Spec 009 permits server-validated quotes and customer-confirmed cart proposals; confirmation makes no model call.
 - [x] Out-of-scope questions, invalid requests, provider failures, and timeouts receive safe localized responses while ordering remains usable.
 - [x] Responses do not invent menu, price, availability, order status, timing, or fulfillment claims and consistently preserve the demo-only boundary.
 - [x] Provider credentials exist only in API runtime configuration; no secrets or provider calls are present in client bundles.

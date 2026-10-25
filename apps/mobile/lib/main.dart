@@ -427,7 +427,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
           final menu = state.menu;
           return Scaffold(
             appBar: AppBar(
-              title: const _Brand(),
+              title: const FittedBox(fit: BoxFit.scaleDown, child: _Brand()),
               actions: [
                 TextButton(
                   onPressed: () => state.setLocale(
@@ -572,6 +572,7 @@ class _Brand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             width: 38,
@@ -914,7 +915,9 @@ class _CartScreenState extends State<CartScreen> {
   @override
   void initState() {
     super.initState();
-    widget.state.refreshQuote();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.state.refreshQuote();
+    });
   }
 
   @override
@@ -2161,8 +2164,10 @@ class _BottomAction extends StatelessWidget {
                     child: Text(label,
                         maxLines: 1, overflow: TextOverflow.ellipsis)),
                 const SizedBox(width: 8),
-                Text(value,
-                    style: const TextStyle(fontWeight: FontWeight.w800)),
+                Flexible(
+                    child: Text(value,
+                        softWrap: true,
+                        style: const TextStyle(fontWeight: FontWeight.w800))),
               ],
             ),
           ),
@@ -2172,6 +2177,7 @@ class _BottomAction extends StatelessWidget {
 
 Json _assistantContext(String screen, OrderState state, {Json? selection}) => {
       'screen': screen,
+      'cartSnapshot': state.cartSnapshot,
       'fulfillment': state.fulfillment,
       'cartLines': state.cart.map((line) => line.toJson()).toList(),
       if (selection != null) 'selection': selection,
@@ -2190,7 +2196,7 @@ class _AssistantButton extends StatelessWidget {
           context: context,
           backgroundColor: _surface,
           builder: (_) => SizedBox(
-              height: MediaQuery.sizeOf(context).height * .48,
+              height: MediaQuery.sizeOf(context).height * .60,
               child: _AssistantSheet(state: state, contextData: contextData)),
         ),
       );
@@ -2202,6 +2208,12 @@ String _assistantDuration(int seconds) => seconds < 60
 String _assistantErrorText(OrderState state, String locale) {
   final pt = locale == 'pt-BR';
   switch (state.assistantError) {
+    case 'proposal_stale':
+    case 'proposal_expired':
+    case 'proposal_invalid':
+      return pt
+          ? 'A sacola ou o cardápio mudou, ou a proposta expirou. Peça uma nova proposta.'
+          : 'The cart or menu changed, or the proposal expired. Ask for a new proposal.';
     case 'assistant_queue_full':
       return pt
           ? 'A fila está cheia. Tente novamente em instantes.'
@@ -2343,6 +2355,8 @@ class _AssistantSheetState extends State<_AssistantSheet>
                   for (final message in state.assistantMessages)
                     _assistantBubble('${message['content'] ?? ''}',
                         message['role'] == 'user'),
+                  if (state.assistantProposal != null)
+                    _proposalCard(state, locale),
                   if (state.assistantLoading)
                     Semantics(
                         liveRegion: true,
@@ -2412,6 +2426,67 @@ class _AssistantSheetState extends State<_AssistantSheet>
         },
       );
 
+  Widget _proposalCard(OrderState state, String locale) {
+    final p = state.assistantProposal!, pt = locale == 'pt-BR';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+          border: Border.all(color: _orange),
+          borderRadius: BorderRadius.circular(12)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Semantics(
+            liveRegion: true,
+            child: Text(state.assistantApplied
+                ? (pt ? 'Sacola atualizada' : 'Cart updated')
+                : (pt
+                    ? 'Proposta — a sacola ainda não mudou'
+                    : 'Proposal — your cart has not changed yet'))),
+        if (!state.assistantApplied) ...[
+          Text(
+              '${p['operation'] == 'remove' ? (pt ? 'Remover' : 'Remove') : (pt ? 'Proposta' : 'Proposed')}: ${p['summary']}'),
+          if (p['beforeSummary'] != null && p['operation'] == 'update')
+            Text('${pt ? 'Antes' : 'Before'}: ${p['beforeSummary']}'),
+          Text(
+              '${p['fulfillment'] == 'pickup' ? (pt ? 'Retirada' : 'Pickup') : (pt ? 'Entrega' : 'Delivery')} · ${pt ? 'Total da sacola' : 'Cart total'}: ${_money((p['quote']['total'] as num).toInt(), locale)}'),
+          if (state.proposalStale)
+            Text(pt
+                ? 'A sacola mudou ou a proposta expirou. Peça uma nova proposta.'
+                : 'The cart changed or the proposal expired. Ask for a new proposal.'),
+          Wrap(spacing: 8, children: [
+            FilledButton(
+                onPressed: state.assistantApplying || state.proposalStale
+                    ? null
+                    : () => state.applyAssistantProposal(),
+                child: Text(pt ? 'Aplicar à sacola' : 'Apply to cart')),
+            TextButton(
+                onPressed: state.assistantApplying
+                    ? null
+                    : () {
+                        state.dismissAssistantProposal(keepDraft: true);
+                      },
+                child: Text(pt ? 'Ajustar' : 'Adjust')),
+            TextButton(
+                onPressed: state.assistantApplying
+                    ? null
+                    : state.dismissAssistantProposal,
+                child: Text(pt ? 'Descartar' : 'Dismiss')),
+          ]),
+        ],
+        if (state.assistantApplied)
+          TextButton(
+              onPressed: () {
+                final navigator = Navigator.of(context);
+                navigator.pop();
+                navigator.push(MaterialPageRoute(
+                    builder: (_) => CartScreen(state: state)));
+              },
+              child: Text(
+                  pt ? 'Revisar pedido demonstrativo' : 'Review demo order')),
+      ]),
+    );
+  }
+
   Widget _assistantBubble(String text, bool user) => Align(
         alignment: user ? Alignment.centerRight : Alignment.centerLeft,
         child: Container(
@@ -2451,9 +2526,7 @@ class _LoadError extends StatelessWidget {
               const SizedBox(height: 14),
               Text(message, textAlign: TextAlign.center),
               const SizedBox(height: 14),
-              OutlinedButton(
-                  onPressed: retry,
-                  child: Text(retryLabel)),
+              OutlinedButton(onPressed: retry, child: Text(retryLabel)),
             ],
           ),
         ),

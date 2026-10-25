@@ -96,3 +96,8 @@ This validates the staging integrations. It does not certify production hosting 
 - Completed browse → customize → cart → fictional pickup checkout in the deployed Portuguese React app. Confirmation returned order `LS-E4ACBCABC12ABA`, R$ 49,00, demo-only notices, and status Received. Supabase confirmed the persisted order. Switching to English rendered the confirmation in English and observed server status Confirmed. The deployed `/kitchen` page showed that shared order and simulated staff messages without visitor mutation controls.
 - The deployed static assets contain neither Supabase nor OpenAI runtime credential. No additional paid assistant call was needed for this website deployment; it uses the already-validated shared staging endpoint.
 - Repeat using `STAGING_API_BASE_URL=<current HTTPS tunnel origin> npm run deploy:cf:web:staging:dry-run`, then `npm --prefix deploy/cloudflare-web run deploy:staging -- --prebuilt` after inspecting the dry run. The deployment package has the same pinned Cloudflare toolchain as the PWA package. Generated assets remain ignored.
+
+
+### Spec 009 staging update (2026-10-25)
+
+Both frontend staging builds and the Supabase-backed Node API now support [reviewed assistant cart proposals](../009-assistant-cart-configuration/spec.md). The deployed React journey applied a real model proposal and then completed the separate explicit fictional checkout. Real Portuguese add and English update probes passed with duplicate confirmation returning the same result. Three model attempts cost US$0.00034870 total; no paid model calls occur during confirmation. The existing global budget/pacing and infrastructure tiers are retained. See [Spec 009 validation](../009-assistant-cart-configuration/validation.md) for full evidence.

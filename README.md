@@ -120,7 +120,7 @@ To use an installed Chromium instead of downloading the test browser, run `CHROM
 
 ## Contextual assistant
 
-The optional assistant is available from menu browsing, customization, cart, and checkout in the React and Flutter clients. It only provides information; customers make and review all selections in the ordering controls. Assistant conversation text is not persisted or written to order records.
+The optional assistant is available from menu browsing, customization, cart, and checkout in the React and Flutter clients. It answers menu questions and can propose configured pizzas or cart-line updates/removals. Customers review the API-validated proposal and select Apply to cart; the assistant never submits checkout. Direct ordering controls remain available. Assistant conversation text is not persisted or written to order records.
 
 Local API development uses a deterministic fake assistant by default. The interface identifies these responses as a development preview and does not need provider credentials. For paid public use, use the vault-backed OpenAI launcher described below. An OpenAI-compatible endpoint is available only for controlled local tests.
 
@@ -179,3 +179,10 @@ npm --prefix deploy/cloudflare-web run deploy:staging -- --prebuilt
 ```
 
 `npm run deploy:cf:web:staging` builds and publishes in one command when `STAGING_API_BASE_URL` is set. The React build receives only the public API origin through `VITE_API_URL`. Redeploy both clients whenever the temporary API tunnel origin changes.
+
+
+### Assistant cart proposals (Spec 009)
+
+Ask naturally, for example “Quero uma Calabresa grande, sem cebola e com bacon.” The assistant clarifies missing choices and shows a proposal with configuration and API-calculated cart total. Apply changes the cart; Adjust continues from the unapplied draft; Dismiss leaves the cart unchanged. Review demo order opens the ordinary checkout. Cart/menu changes, expiry, conversation ownership, and duplicate application are checked before confirmation.
+
+This flow is shared by React, Flutter PWA, and native Android. Proposal confirmation uses the API without another model call or database cart table. All model requests still share the existing US$1/day ledger and 45-second dispatch pacing.

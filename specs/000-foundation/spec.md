@@ -38,7 +38,7 @@ The mobile experience should make this feel like “next, next, finish.” Web u
 
 - Chat is optional and reachable from relevant points in browsing, customization, and checkout.
 - When opened, it should receive the relevant context the customer is working with, such as the selected menu item or current cart, subject to the eventual privacy and data contract.
-- It may answer menu questions and guide the customer back to the structured flow.
+- It may answer menu questions, guide configuration, and propose cart changes under Spec 009. Customers review and explicitly apply proposals before returning to structured demo checkout.
 - It must not silently change cart contents, invent menu facts, claim a transaction succeeded, or bypass explicit customer review and confirmation.
 - Customers can dismiss chat and continue the same journey without losing their structured-flow state.
 - The AI integration and its provider are implementation decisions for a later spec; this foundation does not prescribe a vendor.

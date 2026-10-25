@@ -88,7 +88,7 @@ export class AssistantQueue {
   const job=this.jobs.get(id);
   if(view.state==='completed'&&!job)throw new Error('assistant_request_expired');
   if(['queued','running','completed'].includes(view.state??'')&&(processId!==this.process||!job))throw new Error(processId===this.process?'assistant_request_expired':'assistant_unavailable');
-  return {...safe,...(view.state==='completed'&&job?.result?{reply:job.result.reply,disclaimer:true as const,mode:job.result.mode}:{}),requestId:id,state:view.state!,pollAfterSeconds:3};
+  return {...safe,...(view.state==='completed'&&job?.result?{reply:job.result.reply,disclaimer:true as const,mode:job.result.mode,...(job.result.candidate?{candidate:job.result.candidate}:{})}:{}),requestId:id,state:view.state!,pollAfterSeconds:3};
  }
  async tick(){
   if(this.ticking)return;this.ticking=true;

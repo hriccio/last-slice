@@ -140,6 +140,7 @@ class MenuCatalog {
 
 class CartLine {
   const CartLine({
+    this.lineId,
     required this.flavorId,
     required this.sizeId,
     required this.crustId,
@@ -148,6 +149,7 @@ class CartLine {
     required this.quantity,
   });
 
+  final String? lineId;
   final String flavorId;
   final String sizeId;
   final String crustId;
@@ -156,6 +158,7 @@ class CartLine {
   final int quantity;
 
   CartLine copyWith({int? quantity}) => CartLine(
+        lineId: lineId,
         flavorId: flavorId,
         sizeId: sizeId,
         crustId: crustId,
