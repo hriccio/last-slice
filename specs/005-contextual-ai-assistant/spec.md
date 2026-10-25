@@ -3,6 +3,8 @@
 **Status:** Implemented and locally validated; deployment gates recorded
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [001 — Web demo ordering journey](../001-web-demo-ordering/spec.md), [002 — Flutter cross-platform demo ordering](../002-mobile-demo-ordering/spec.md), [003 — Flutter Web PWA customer client](../003-flutter-web-pwa/spec.md)
 
+**Proposed extension:** [009 — Assistant-guided cart configuration](../009-assistant-cart-configuration/spec.md) drafts customer-reviewed cart proposals. It is not implemented and does not yet change this advice-only contract.
+
 ## Outcome
 
 Customers can open optional, contextual AI help while browsing or ordering through the React website or Flutter client. The assistant answers questions about the current demo menu and guides customers back to the structured flow. The API mediates all model access. The assistant cannot change a cart, submit an order, claim an order succeeded, or replace authoritative API data.
