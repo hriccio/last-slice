@@ -24,3 +24,9 @@ Rechecked on 2026-10-25:
 - `npm run build` — shared contracts, API TypeScript, and React production build passed.
 
 No paid provider request was repeated during this regression run; the live adapter probe remains the 2026-10-24 evidence above. Human screen-reader testing remains open, so the accessibility acceptance item is still unchecked.
+
+## Keyboard accessibility review
+
+On 2026-10-25, manually used the keyboard with the React assistant at desktop and 390×844 phone width. Tab reached the assistant trigger, Enter opened it with focus in the message field, Shift+Tab reached the close control, and closing returned focus to the trigger. At phone width, the panel remained within the viewport and ended above the persistent cart action. The first geometry check found a 5 px left overflow; the mobile panel width was reduced to keep it inside the viewport, and the assistant browser tests now assert the panel bounds and cart-action spacing at 390×844.
+
+This does not complete the screen-reader portion of the acceptance item. Orca 42 is installed, but the CUA-managed browser did not provide a stable native focus/audio session for a credible spoken-output check. Flutter screen-reader behavior, larger-text behavior, and human audio review remain open.

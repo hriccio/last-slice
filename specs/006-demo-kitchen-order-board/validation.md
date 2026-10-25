@@ -16,3 +16,9 @@ Rechecked on 2026-10-25:
 - `npm run build` — shared contracts, API, and React production build passed.
 
 This recheck was local. It did not inspect a hosted Supabase project's cleanup schedule, infrastructure logs, real public capacity, or perform human screen-reader audio testing; the corresponding launch gates remain open.
+
+## Keyboard accessibility review
+
+On 2026-10-25, manually navigated the React public board with the keyboard at desktop width. Tab reached both filters and refresh; arrow keys changed the status and fulfillment filters; Enter refreshed the board. When the local staff simulation added two messages, the board exposed a localized “2 new messages” status announcement and keyboard focus remained on refresh. The event feed is exposed as a read-only log, with no visitor message input or order-mutation control.
+
+At 390×844, the order board and staff conversation stack vertically, and the document has no horizontal overflow. The feed remains scrollable below the order cards. The screen-reader audio and larger-text checks are not complete: Orca did not receive a stable native focus/audio session through the CUA-controlled browser, and browser zoom could not be changed through that remote tab. Keep the combined accessibility acceptance item unchecked pending a direct assistive-technology and large-text review.

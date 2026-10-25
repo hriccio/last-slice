@@ -30,5 +30,10 @@ for(const locale of ['pt-BR','en-US']){
   state='completed';await page.clock.runFor(3000);await expect(page.getByText(pt?'Você pode escolher a massa fina nos controles.':'You can choose thin crust in the controls.')).toBeVisible();
   fail='assistant_budget_exhausted';await input.fill('pizza');await send.click();await expect(page.getByRole('alert')).toContainText(pt?'limite diário':'daily AI limit');
   await expect(input).toHaveValue('pizza');
+  await page.setViewportSize({width:390,height:844});
+  const panel=page.locator('.assistantPanel');await expect(panel).toBeVisible();
+  const panelBox=await panel.boundingBox(),cartBox=await page.locator('.mobileCart').boundingBox();
+  expect(panelBox?.x).toBeGreaterThanOrEqual(0);expect((panelBox?.x??0)+(panelBox?.width??0)).toBeLessThanOrEqual(390);
+  expect((panelBox?.y??0)+(panelBox?.height??0)).toBeLessThanOrEqual(cartBox?.y);
  });
 }
