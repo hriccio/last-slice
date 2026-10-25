@@ -13,3 +13,14 @@ Use `make dev-ai` (API plus React) or `make api-ai` after configuring `CODEX_KC_
 The provider-input budget uses `o200k_base` encoding for the fixed GPT-5 snapshot, per-message framing, and a conservative 128-token protocol allowance. Old history is removed before essential context/system rules. Reported usage is checked against the policy bounds, with any mismatch quarantining further paid work. The output cap includes reasoning; timeout/missing-usage attempts retain the full WCS reservation.
 
 The initial demo runs one API process because payloads/results are volatile. The database coordinates overlapping dispatchers and preserves accounting across crashes, but this repository does not configure multi-replica request affinity. PostgreSQL tests do not validate a deployed Supabase project, a hosted cleanup schedule, or hosting logs. Standard provider abuse-monitoring retention remains as documented in the model decision; no Zero Data Retention approval is claimed.
+
+## Local regression recheck
+
+Rechecked on 2026-10-25:
+
+- `npm run test:api` — all 15 API/SQL tests passed, including queue reservations and settlement, budget exhaustion, context redaction, and deterministic provider fixtures.
+- `CHROMIUM_EXECUTABLE=/usr/bin/chromium npx playwright test tests/assistant.web.spec.ts` — both locale scenarios passed for queue timing, cancellation, duplicate-send protection, completed replies, and budget recovery.
+- `flutter analyze` — no issues; `flutter test` — all 20 widget tests passed, including the assistant queue, state preservation, cancellation, localized budget errors, and background/resume behavior.
+- `npm run build` — shared contracts, API TypeScript, and React production build passed.
+
+No paid provider request was repeated during this regression run; the live adapter probe remains the 2026-10-24 evidence above. Human screen-reader testing remains open, so the accessibility acceptance item is still unchecked.
