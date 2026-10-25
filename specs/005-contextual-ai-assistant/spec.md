@@ -134,7 +134,7 @@ The API uses a provider adapter selected through server configuration. Provider 
 - [x] Provider credentials exist only in API runtime configuration; no secrets or provider calls are present in client bundles.
 - [x] Personal contact/address details and order lookup data are excluded from provider context; conversation content is not persisted or logged.
 - [x] A deterministic local fake adapter supports UI/API development without external credentials and is distinguishable from a real provider response.
-- [ ] The assistant is usable with keyboard and screen reader on desktop and narrow mobile layouts.
+- [x] The assistant is usable with keyboard and screen reader on desktop and narrow mobile layouts.
 - [x] The endpoint enforces documented request, context, history, response, and timeout limits and returns the existing stable API error envelope.
 - [x] Free-form, multi-turn conversation handles informal requests and clarification naturally in both locales, without requiring preset prompts or implying that advice changed/submitted an order.
 - [x] The selected model works through the actual adapter with runtime vault injection; no credential reaches clients or committed artifacts.
