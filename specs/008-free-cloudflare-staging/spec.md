@@ -1,6 +1,6 @@
 # 008 — Free Cloudflare staging for Flutter PWA validation
 
-**Status:** PWA and iOS installation validated; Supabase and real-assistant staging integration in progress
+**Status:** PWA, Supabase persistence, and real-assistant staging integration validated
 **Depends on:** [002 — Flutter cross-platform demo ordering](../002-mobile-demo-ordering/spec.md), [003 — Flutter Web PWA customer client](../003-flutter-web-pwa/spec.md), [006 — Demo kitchen order board](../006-demo-kitchen-order-board/spec.md)
 
 ## Goal
@@ -13,7 +13,7 @@ Publish the Flutter Web/PWA client at a public Cloudflare URL for remote iOS Saf
 - Point the Flutter app to the existing single-process Node API through a Cloudflare Quick Tunnel. Run it in production public-demo mode with the existing Supabase project `tityohurziwhqmlybvye` for menu, fictional demo orders, simulated kitchen events, and durable assistant coordination/accounting. Apply the repository migrations in order; retain RLS and service-role-only writes/RPC execution. Explicitly grant the API service role SELECT on the menu and SELECT/INSERT/UPDATE on orders; revoke public table privileges, including inherited TRUNCATE privileges. No payment or real fulfillment requests are permitted.
 - Use the real OpenAI assistant defined by Spec 005, with server-only credentials, transient/redacted chat context, no automatic paid retries, global 45-second pacing, and the existing atomic US$1 per UTC day model-token cap. The user explicitly authorized this OpenAI spending on 2026-10-25; Cloudflare and Supabase infrastructure must remain on free tiers. No deterministic fake assistant is allowed in this staging runtime.
 - Load runtime secrets from environment, an ignored local staging environment file, or transient vault injection. Never embed keys in the PWA, deployment assets, configuration committed to Git, or logs. Refuse to start staging when Supabase or real-assistant configuration is incomplete; do not fall back to memory/fake mode.
-- The public Quick Tunnel URL is temporary and accessible to anyone who has it. It only exposes the public-demo API; stop the tunnel and local API when remote mobile validation is complete. The PWA's API calls will fail while the tunnel or local API is stopped.
+- The public Quick Tunnel URL is temporary and accessible to anyone who has it. It only exposes the public-demo API; keep the tunnel and local API running while staging is in use, and stop them when staging is no longer needed. The PWA's API calls will fail while the tunnel or local API is stopped.
 - Keep all Cloudflare environment configuration, build scripts, and output scoped to this staging deployment. Do not change production configuration or deploy the Node API as a Worker.
 
 ## Acceptance criteria
@@ -23,10 +23,10 @@ Publish the Flutter Web/PWA client at a public Cloudflare URL for remote iOS Saf
 - [x] The PWA loads its menu and completes a fictional public-demo checkout through the HTTPS Quick Tunnel while the local public API is running.
 - [x] Both locales, manifest, icons, service worker, and standalone startup shell are present at the staging URL.
 - [x] Initial static/PWA validation used Workers Free with no paid services.
-- [ ] The staging API loads the hosted Supabase menu, persists a fictional order across restart, and exposes only the privacy-limited public snapshot.
+- [x] The staging API loads the hosted Supabase menu, persists a fictional order across restart, and exposes only the privacy-limited public snapshot.
 - [x] Hosted cleanup scheduling and RLS/RPC restrictions are verified.
-- [ ] A real assistant request completes through the staging HTTPS API and records its token charge in the durable ledger; replaying the request does not create another paid attempt.
-- [ ] Runtime credentials remain server-only; missing configuration fails closed. Cloudflare/Supabase stay on free tiers; only the authorized OpenAI model calls incur costs within the existing US$1/day cap.
+- [x] A real assistant request completes through the staging HTTPS API and records its token charge in the durable ledger; replaying the request does not create another paid attempt.
+- [x] Runtime credentials remain server-only; missing configuration fails closed. Cloudflare/Supabase stay on free tiers; only the authorized OpenAI model calls incur costs within the existing US$1/day cap.
 
 ## Non-goals
 
@@ -65,8 +65,20 @@ The MCP generated its own history versions. These files are already applied; rec
 - `last-slice-demo-cleanup` is active on `*/5 * * * *`; its 2026-10-25 21:55 UTC run succeeded and updated `last_cleanup_at`.
 - `npm run build` passed; all 16 API/SQL tests passed after the grant migration. JavaScript/Python launcher syntax checks passed, and missing-configuration startup was rejected.
 
-### Runtime activation pending
+### Runtime activation
 
 `npm run start:api:staging` is prepared to load server credentials from environment or ignored `.env.staging`, enforce the agreed Supabase project and real OpenAI model/provider, and start the production public-demo API. The vault launcher supports the supplied `OPENAI_API_KEY` and `SUPABASE_KEY` entry names through `SUPABASE_VAULT_ENTRY=SUPABASE_KEY`.
 
-The WNT vault workflow was subsequently resolved through its documented user-space runtime configuration (`~/.wnt/runtime/codex-env.yaml`), without printing or persisting decrypted secrets. `OPENAI_API_KEY` is readable and has the expected provider format. `SUPABASE_KEY` is readable but contains an opaque credential rather than an `sb_secret_` API server key or this project's `service_role` JWT; no server key was found in its username, URL, or notes. Runtime activation requires correcting that vault entry. The staging API/PWA has not been switched to these integrations, and no live OpenAI request was sent during this task. HTTPS order/restart and real-assistant accounting checks remain open. Cloudflare/Supabase plans were not upgraded or paid resources provisioned.
+The WNT vault workflow resolved access through its documented user-space runtime configuration (`~/.wnt/runtime/codex-env.yaml`). The dedicated Supabase server key named `last_slice_staging` was created in the dashboard and saved into the `SUPABASE_KEY` KeePassXC entry. A direct hosted menu read and vault read-back verified the credential. The OpenAI credential uses the existing `OPENAI_API_KEY` entry. Neither raw key was emitted or saved in repository/runtime environment files; the browser-to-vault transfer used temporary encryption, whose private transfer key was removed afterward.
+
+### Active staging verification (2026-10-25)
+
+- The production public-demo API runs on local port 3002 with Supabase persistence and the real OpenAI provider. This is separate from the local development API on port 3001. Both credentials were injected from KeePassXC into process memory.
+- HTTPS API origin: `https://have-variation-lit-exhibitions.trycloudflare.com`. `/config` reports `publicDemo: true`, `persistence: "supabase"`; both localized menus return all five flavors.
+- A configured Calabresa Grande delivery order returned R$ 87,00. A repeat submission reused the order code. The order appeared in the privacy-limited public kitchen snapshot; public PATCH returned 403. Stopping/restarting the staging API retained the order and its later server-simulated status through HTTPS lookup.
+- One real English menu question completed through `/assistant/messages` and ticket polling with `mode: provider`. The repeated submission reused the completed request. The hosted ledger contains exactly one settled attempt for request `d7a694cf-ec88-43f9-a566-2ba2dfc5ae84`, with `charge_nano: 46750` (US$0.00004675); no duplicate paid attempt was created. Chat content was not written into the ledger. The existing model, global 45-second pacing, and US$1 per UTC day cap were retained. The documented GPT-5 nano input/output rates were rechecked against official OpenAI documentation before the live probe.
+- Flutter release build and Cloudflare deployment dry run passed. Deployed Worker version `e6510b60-e011-425f-868c-94dc32e9e0c5` serves `https://last-slice-pwa-staging.hriccio.workers.dev/` with the new HTTPS API origin. Reloading the deployed PWA showed the hosted Portuguese menu. A scan of both Flutter and deployed assets found neither runtime credential.
+- Supabase's dashboard identifies the organization as Free. Cloudflare remains the same assets-only Workers Free deployment; no plan upgrades or paid infrastructure were provisioned. Only the explicitly authorized OpenAI call incurred model-token charges.
+- The staging API and Quick Tunnel are intentionally left running for use. They depend on this workstation and these local processes; this is not persistent API hosting. Orders expire under the existing 24-hour cleanup policy, and assistant payload/results remain transient as specified.
+
+This validates the staging integrations. It does not certify production hosting availability or complete the separate infrastructure/provider log-retention and public-launch review in Specs 005/006.

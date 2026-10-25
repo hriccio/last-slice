@@ -156,3 +156,6 @@ python3 scripts/run-api-with-vault.py npm run start:api:staging
 ```
 
 Expose port 3001 through the existing Cloudflare Quick Tunnel workflow, then redeploy the PWA with `STAGING_API_BASE_URL` set to that tunnel's HTTPS origin. A new tunnel origin requires rebuilding/redeploying the PWA. Verify `/config` reports `publicDemo: true` and `persistence: "supabase"`, complete a fictional order, restart the API and retrieve the order, and verify one real assistant request plus its durable accounting. Keep kitchen write routes inaccessible publicly. No keys or raw chat text belong in validation records.
+
+
+Staging integration was validated on 2026-10-25: hosted menu/order persistence, restart lookup, public kitchen read/write separation, and one real OpenAI response with durable cost settlement. The active staging API uses port 3002 and a temporary Quick Tunnel; the PWA remains at https://last-slice-pwa-staging.hriccio.workers.dev/. See [Spec 008](specs/008-free-cloudflare-staging/spec.md) for the current tunnel origin and validation record. The dedicated server credential is stored in the `SUPABASE_KEY` KeePassXC entry.
