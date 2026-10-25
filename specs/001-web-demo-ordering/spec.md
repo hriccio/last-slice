@@ -155,3 +155,14 @@ Shared contracts in `packages/contracts/` define request/response shapes, stable
 - Catalog and prices are fictional fixtures as listed above, used consistently in both locales.
 - Checkout supports pickup and delivery, with the fixed demo delivery fee and required fields above.
 - Customer order status starts at `received`; no customer-visible simulated status progression is fabricated.
+
+## Local validation
+
+Rechecked on 2026-10-25 against the current public-demo implementation:
+
+- `npm run test:api` — all 15 API/SQL tests passed, including authoritative quote calculations, invalid-option rejection, idempotency, public fixture checkout, delivery order creation, and privacy-limited order lookup.
+- `CHROMIUM_EXECUTABLE=/usr/bin/chromium npx playwright test` — all 13 browser tests passed, including structured ordering in both locales, tracking and failure states, public checkout, and responsive kitchen-board behavior.
+- `npm run build` — contracts, API, and React production build passed.
+- Ran the live React app at 390×844 and 1365×768 against the local public-demo API. A Calabresa Grande with Catupiry-stuffed crust, removed onion, and extra bacon quoted R$ 79,00; delivery added R$ 8,00. Submission produced a fictional order at R$ 87,00 with status `received`, a demo code, and the no-real-payment/delivery notice.
+
+Spec 006 supersedes this spec's original public name/phone/address form with server-owned fictional fixtures. The live checkout exercised the delivery fixture, not real personal details. The acceptance checklist above is historical and still contains superseded field requirements; this validation record does not claim a fresh audit of every legacy combination or a hosted Supabase deployment.
