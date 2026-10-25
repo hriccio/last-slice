@@ -133,3 +133,26 @@ The [public chat queue](specs/005-contextual-ai-assistant/queue-budget.md) caps 
 Run API/SQL regression checks with `npm run test:api`, browser checks with `CHROMIUM_EXECUTABLE=/path/to/chromium npx playwright test`, and Flutter widget checks with `flutter test` from `apps/mobile`. These use controlled clocks/provider usage for budget boundaries instead of paid load tests.
 
 See the [integrated release validation](specs/release-validation.md) for acceptance evidence and remaining deployment checks.
+
+## Supabase and real-assistant staging
+
+Staging uses the existing Supabase project `tityohurziwhqmlybvye`, the production-mode Node API, and the real OpenAI assistant with the durable US$1 per UTC day model-token cap. Cloudflare/Supabase infrastructure stays on free tiers. The API remains a single local process exposed through a temporary Cloudflare Quick Tunnel; staging is available only while both processes run.
+
+Apply all `supabase/migrations/` files in order before starting, including the staging service-role grant migration. They seed the menu, enable RLS, restrict privileged RPC execution to the server, and schedule public-demo cleanup every five minutes when pg_cron is available. The initial MCP application on 2026-10-25 recorded server-generated migration versions; see Spec 008 for the mapping before using CLI migration push/pull against this project.
+
+Provide `SUPABASE_URL=https://tityohurziwhqmlybvye.supabase.co`, `SUPABASE_SERVICE_ROLE_KEY`, and `ASSISTANT_API_KEY` through the environment or an ignored root `.env.staging` file. The staging launcher also accepts `SUPABASE_KEY` and `OPENAI_API_KEY` aliases. The database key must be a server secret or this project's service-role key; public/anon keys are rejected. Never supply either secret to customer builds. Then run:
+
+```sh
+npm run build
+npm run start:api:staging
+```
+
+The launcher requires the agreed project and real OpenAI provider/model, forces production public-demo mode, and rejects missing configuration. It reads `.env.staging` without replacing existing environment values. For vault-backed injection from `OPENAI_API_KEY` and `SUPABASE_KEY`, configure `CODEX_KC_VAULT` / `CODEX_KC_SECRET` and run:
+
+```sh
+SUPABASE_URL=https://tityohurziwhqmlybvye.supabase.co \
+SUPABASE_VAULT_ENTRY=SUPABASE_KEY \
+python3 scripts/run-api-with-vault.py npm run start:api:staging
+```
+
+Expose port 3001 through the existing Cloudflare Quick Tunnel workflow, then redeploy the PWA with `STAGING_API_BASE_URL` set to that tunnel's HTTPS origin. A new tunnel origin requires rebuilding/redeploying the PWA. Verify `/config` reports `publicDemo: true` and `persistence: "supabase"`, complete a fictional order, restart the API and retrieve the order, and verify one real assistant request plus its durable accounting. Keep kitchen write routes inaccessible publicly. No keys or raw chat text belong in validation records.

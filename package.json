@@ -13,6 +13,7 @@
     "test:tracking": "npm run test:tracking:api && playwright test",
     "test:tracking:api": "node --import tsx --test tests/order-tracking.api.test.ts",
     "dev:api:ai": "python3 scripts/run-api-with-vault.py",
+    "start:api:staging": "node scripts/run-staging-api.mjs",
     "dev:ai": "concurrently -k -n api,web -c yellow,cyan \"npm:dev:api:ai\" \"npm:dev:web\"",
     "test:api": "node --import tsx --test tests/*.test.ts",
     "dev:public": "concurrently -k -n api,web -c yellow,cyan \"npm:dev:api:public\" \"npm:dev:web\"",

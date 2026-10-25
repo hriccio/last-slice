@@ -23,6 +23,18 @@ env = dict(os.environ)
 env['ASSISTANT_API_KEY'] = key
 env['ASSISTANT_PROVIDER'] = 'openai'
 env['ASSISTANT_MODEL'] = 'gpt-5-nano-2025-08-07'
+database_entry = os.environ.get('SUPABASE_VAULT_ENTRY')
+if database_entry:
+    try:
+        database_result = subprocess.run(
+            ['keepassxc-cli', 'show', '-s', '-a', 'password', vault, database_entry],
+            input=password + '\n', text=True, capture_output=True, timeout=20,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        sys.exit('Could not read the Supabase credential from the vault.')
+    if database_result.returncode or not database_result.stdout.strip():
+        sys.exit('Could not unlock the vault or locate the Supabase credential.')
+    env['SUPABASE_SERVICE_ROLE_KEY'] = database_result.stdout.strip()
 # The API does not need the vault password after credential injection.
 env.pop('CODEX_KC_SECRET', None)
 env.pop('CODEX_KC_VAULT', None)

@@ -6,6 +6,24 @@ import {staffMessage,calculate,type Status,type CartLine} from '../packages/cont
 import {sqlDatabase,rpcFixture,startApi} from './helpers.ts';
 const line:CartLine={flavorId:'calabresa',sizeId:'media',crustId:'traditional',removedIngredientIds:['onion'],extraToppingIds:['bacon'],quantity:2};
 const order=(fulfillment:'pickup'|'delivery'='pickup',code=`LS-${randomUUID().replaceAll('-','').toUpperCase()}`)=>({orderCode:code,createdAt:'2026-10-24T12:00:00.000Z',updatedAt:'2026-10-24T12:00:00.000Z',status:'received' as Status,statusKey:'status.received',locale:'pt-BR',fulfillment,...calculate([line],fulfillment),demoOnly:true});
+test('fresh database grants API menu/order access and denies direct public table access',async t=>{
+ const db=await sqlDatabase();t.after(()=>db.close());
+ // Supabase service_role bypasses RLS, but still needs explicit SQL table grants.
+ await db.exec('alter role service_role bypassrls;set role service_role;');
+ assert.equal((await db.query('select * from demo_menu where available')).rows.length,5);
+ const o=order();
+ await db.query('select create_public_demo_order($1,$2,$3,$4)',[o.orderCode,randomUUID(),'synthetic-payload',JSON.stringify(o)]);
+ assert.equal((await db.query('select order_code from demo_orders where order_code=$1',[o.orderCode])).rows.length,1);
+ await db.exec('reset role');
+ for(const role of ['anon','authenticated']){
+  await db.exec(`set role ${role}`);
+  for(const table of ['demo_menu','demo_orders']){
+   await assert.rejects(db.query(`select * from ${table}`),/permission denied/);
+   await assert.rejects(db.query(`truncate ${table} cascade`),/permission denied/);
+  }
+  await db.exec('reset role');
+ }
+});
 test('memory fake staff use bounded times, one transition per tick, terminal stop, safe bilingual dialogue and expiry',()=>{
  let now=Date.parse('2026-10-24T12:00:00Z');const orders=new Map();const kitchen=new MemoryKitchen(orders,()=>now,()=>0);
  for(const fulfillment of ['pickup','delivery'] as const){const o=order(fulfillment);kitchen.initialize(o);orders.set(o.orderCode,o);}
