@@ -1,0 +1,16 @@
+{
+  "name": "last-slice-cloudflare-pwa-staging",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "deploy:dry-run": "cf deploy --mode staging --dry-run",
+    "deploy:staging": "cf deploy --mode staging"
+  },
+  "devDependencies": {
+    "@cloudflare/config": "0.28.0",
+    "@cloudflare/vite-plugin": "2.0.0-beta.v.4",
+    "cf": "0.15.0",
+    "vite": "7.3.7"
+  }
+}
