@@ -7,6 +7,10 @@
 
 # JavaScript / TypeScript
 node_modules/
+deploy/cloudflare-web/index.html
+deploy/cloudflare-web/public/
+deploy/cloudflare-web/.cloudflare/
+deploy/cloudflare-web/.wrangler/
 deploy/cloudflare-pwa/index.html
 deploy/cloudflare-pwa/public/
 deploy/cloudflare-pwa/dist/

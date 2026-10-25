@@ -1,11 +1,11 @@
-# 008 — Free Cloudflare staging for Flutter PWA validation
+# 008 — Free Cloudflare staging for web and Flutter PWA validation
 
-**Status:** PWA, Supabase persistence, and real-assistant staging integration validated
+**Status:** React website, PWA, Supabase persistence, and real-assistant staging integration validated
 **Depends on:** [002 — Flutter cross-platform demo ordering](../002-mobile-demo-ordering/spec.md), [003 — Flutter Web PWA customer client](../003-flutter-web-pwa/spec.md), [006 — Demo kitchen order board](../006-demo-kitchen-order-board/spec.md)
 
 ## Goal
 
-Publish the Flutter Web/PWA client at a public Cloudflare URL for remote iOS Safari testing, while keeping Cloudflare usage at $0 and preserving the existing API and Supabase architecture.
+Publish the React website and Flutter Web/PWA client at separate public Cloudflare URLs for staging validation, while keeping Cloudflare usage at $0 and preserving the existing API and Supabase architecture.
 
 ## Staging behavior
 
@@ -15,6 +15,8 @@ Publish the Flutter Web/PWA client at a public Cloudflare URL for remote iOS Saf
 - Load runtime secrets from environment, an ignored local staging environment file, or transient vault injection. Never embed keys in the PWA, deployment assets, configuration committed to Git, or logs. Refuse to start staging when Supabase or real-assistant configuration is incomplete; do not fall back to memory/fake mode.
 - The public Quick Tunnel URL is temporary and accessible to anyone who has it. It only exposes the public-demo API; keep the tunnel and local API running while staging is in use, and stop them when staging is no longer needed. The PWA's API calls will fail while the tunnel or local API is stopped.
 - Keep all Cloudflare environment configuration, build scripts, and output scoped to this staging deployment. Do not change production configuration or deploy the Node API as a Worker.
+
+- Publish the React website as a separate assets-only Worker named `last-slice-web-staging`, including the `/kitchen` SPA route. Build `apps/web/` with `VITE_API_URL` set to the same HTTPS staging API used by the PWA. Keep its generated files and Cloudflare configuration under `deploy/cloudflare-web/`; never include database/provider secrets.
 
 ## Acceptance criteria
 
@@ -27,6 +29,8 @@ Publish the Flutter Web/PWA client at a public Cloudflare URL for remote iOS Saf
 - [x] Hosted cleanup scheduling and RLS/RPC restrictions are verified.
 - [x] A real assistant request completes through the staging HTTPS API and records its token charge in the durable ledger; replaying the request does not create another paid attempt.
 - [x] Runtime credentials remain server-only; missing configuration fails closed. Cloudflare/Supabase stay on free tiers; only the authorized OpenAI model calls incur costs within the existing US$1/day cap.
+
+- [x] The React website is published on Workers Free at its own staging URL; menu and `/kitchen` load through the shared staging API, and SPA navigation/assets work over HTTPS.
 
 ## Non-goals
 
@@ -82,3 +86,13 @@ The WNT vault workflow resolved access through its documented user-space runtime
 - The staging API and Quick Tunnel are intentionally left running for use. They depend on this workstation and these local processes; this is not persistent API hosting. Orders expire under the existing 24-hour cleanup policy, and assistant payload/results remain transient as specified.
 
 This validates the staging integrations. It does not certify production hosting availability or complete the separate infrastructure/provider log-retention and public-launch review in Specs 005/006.
+
+
+### React website staging (2026-10-25)
+
+- Published `https://last-slice-web-staging.hriccio.workers.dev/` as a separate assets-only Worker on the same account, version `d01b8523-a2dd-4c3e-afc8-27ab5f6894f4`. The Flutter PWA remains at its existing URL.
+- The React build uses the same HTTPS API origin (`https://have-variation-lit-exhibitions.trycloudflare.com`), Supabase database, and real-assistant queue/accounting policy as the PWA. No new API, database, paid plan, or infrastructure binding was added.
+- Built the shared contracts and React production bundle and passed the Cloudflare deployment dry run. The homepage, `/kitchen` SPA fallback, all referenced JavaScript/CSS, a local font stylesheet, and a local image returned HTTP 200 with appropriate content types.
+- Completed browse → customize → cart → fictional pickup checkout in the deployed Portuguese React app. Confirmation returned order `LS-E4ACBCABC12ABA`, R$ 49,00, demo-only notices, and status Received. Supabase confirmed the persisted order. Switching to English rendered the confirmation in English and observed server status Confirmed. The deployed `/kitchen` page showed that shared order and simulated staff messages without visitor mutation controls.
+- The deployed static assets contain neither Supabase nor OpenAI runtime credential. No additional paid assistant call was needed for this website deployment; it uses the already-validated shared staging endpoint.
+- Repeat using `STAGING_API_BASE_URL=<current HTTPS tunnel origin> npm run deploy:cf:web:staging:dry-run`, then `npm --prefix deploy/cloudflare-web run deploy:staging -- --prebuilt` after inspecting the dry run. The deployment package has the same pinned Cloudflare toolchain as the PWA package. Generated assets remain ignored.

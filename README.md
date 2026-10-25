@@ -159,3 +159,23 @@ Expose port 3001 through the existing Cloudflare Quick Tunnel workflow, then red
 
 
 Staging integration was validated on 2026-10-25: hosted menu/order persistence, restart lookup, public kitchen read/write separation, and one real OpenAI response with durable cost settlement. The active staging API uses port 3002 and a temporary Quick Tunnel; the PWA remains at https://last-slice-pwa-staging.hriccio.workers.dev/. See [Spec 008](specs/008-free-cloudflare-staging/spec.md) for the current tunnel origin and validation record. The dedicated server credential is stored in the `SUPABASE_KEY` KeePassXC entry.
+
+
+### React website staging
+
+- Website: https://last-slice-web-staging.hriccio.workers.dev/
+- Shared read-only kitchen: https://last-slice-web-staging.hriccio.workers.dev/kitchen
+- Flutter PWA: https://last-slice-pwa-staging.hriccio.workers.dev/
+
+Both clients use the same staging API, Supabase database, and real assistant with its existing shared US$1/day model-token cap. The local API and Quick Tunnel must stay running.
+
+Install the separate static deployment toolchain once, then build and preview the upload:
+
+```sh
+npm --prefix deploy/cloudflare-web ci
+STAGING_API_BASE_URL=https://your-current-api-tunnel.trycloudflare.com \
+  npm run deploy:cf:web:staging:dry-run
+npm --prefix deploy/cloudflare-web run deploy:staging -- --prebuilt
+```
+
+`npm run deploy:cf:web:staging` builds and publishes in one command when `STAGING_API_BASE_URL` is set. The React build receives only the public API origin through `VITE_API_URL`. Redeploy both clients whenever the temporary API tunnel origin changes.
