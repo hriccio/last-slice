@@ -15,6 +15,14 @@ The Last Slice needs a clear product contract before the web, mobile, and backen
 4. Keep menu, availability, pricing, and order business rules consistent across clients by owning them in the API and shared contracts.
 5. Demonstrate the same core experience in `pt-BR` and `en-US`.
 
+## Delivery platforms
+
+- Responsive React website for desktop and mobile browsers.
+- Flutter Web PWA for iOS Safari and Android browsers, including installation and standalone startup.
+- Native Flutter Android app, with emulator validation defined by Spec 004.
+
+Native iOS builds, Apple SDK/Xcode setup, signing, and App Store distribution are excluded by the 2026-10-25 scope decision. iOS uses the PWA. Android release signing/store distribution is not established by the emulator/debug-build acceptance in Spec 004.
+
 ## Users and primary journey
 
 The primary user is a customer exploring a fictional pizzeria menu. The expected journey is:

@@ -5,7 +5,7 @@
 
 ## Outcome
 
-The Last Slice demonstrates two distinct customer clients: the React website in `apps/web/` and a Flutter app in `apps/mobile/`. This spec defines the Flutter app's browser target as an installable Progressive Web App (PWA). The same Dart ordering flow must be buildable for Android and iOS later; the PWA is not a wrapper around the React website.
+The Last Slice demonstrates two distinct customer clients: the React website in `apps/web/` and a Flutter app in `apps/mobile/`. This spec defines the Flutter app's browser target as an installable Progressive Web App (PWA). The same Dart ordering flow is shared with native Android; iOS is delivered through this PWA and native iOS is excluded by the agreed scope. The Flutter PWA and React website remain separate clients.
 
 ## Scope
 
@@ -23,7 +23,7 @@ The Last Slice demonstrates two distinct customer clients: the React website in 
 - Replacing or merging the React website with Flutter.
 - New menu, ordering, pricing, checkout, or tracking behavior beyond spec 002.
 - Offline menu browsing, queued checkout, cached order submission, custom service-worker caching, or push notifications.
-- Native Android/iOS packaging, signing, store submission, and platform-specific native features. The Dart app should remain portable to those targets, but their release setup is a later implementation step.
+- Native Android packaging is covered by Spec 004. Native iOS builds are outside delivery scope. Native signing, store submission, and platform-specific native features are outside this PWA slice.
 - AI chat, real payments, real fulfillment, and customer accounts.
 
 ## Product behavior

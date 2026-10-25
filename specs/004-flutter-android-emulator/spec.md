@@ -65,7 +65,7 @@ An API failure must show the existing localized recovery state and preserve the 
 
 ## Decisions fixed by this spec
 
-- The next native proof target is Android; iOS is a separate follow-up.
+- The native delivery target is Android. The 2026-10-25 scope decision excludes native iOS; iOS is delivered through the PWA.
 - The Flutter Web PWA and Android app use the same Dart ordering flow and API client.
 - This is an emulator-focused debug build, not a production or store release.
 - Existing API, pricing, order validation, and demo transaction behavior remain authoritative and unchanged.

@@ -1,6 +1,6 @@
 # 001 — Web demo ordering journey
 
-**Status:** Implemented; local release validation recorded
+**Status:** Current public-demo acceptance validated locally; hosted Supabase readiness remains a release gate
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md)
 
 ## Outcome
@@ -46,7 +46,7 @@ Adapt the references to The Last Slice's Brazilian menu, BRL prices, and `pt-BR`
 1. The customer lands on the menu in their selected locale. The page presents categories and pizza cards with name, short description, available sizes, and starting price.
 2. Selecting a pizza opens a structured customization step. The customer picks one size, one crust, and optional extra toppings, then adds it to the cart.
 3. The customer can adjust quantities or remove lines. Prices and the order total are recalculated by the API and shown before checkout.
-4. Checkout asks whether the order is for pickup or delivery and collects the relevant customer details. The customer reviews the final total and explicitly submits the demo order.
+4. Checkout asks whether the order is for pickup or delivery and shows the server-owned fictional details required by Spec 006. No visitor identity/contact/address entry is requested. The customer reviews the final total and explicitly submits the demo order.
 5. Confirmation shows a human-readable demo order code, the initial status, item summary, total, fulfillment choice, and a persistent explanation that the order, payment, and fulfillment are simulated.
 6. The customer can reopen a status page using the order code. It displays the latest status and a localized explanation.
 
@@ -87,7 +87,11 @@ These five flavors are the complete menu for this slice. Ingredients are descrip
 
 ## Checkout details
 
-**Public demo revision:** [Spec 006](../006-demo-kitchen-order-board/spec.md) replaces identity/contact/address entry with server-owned fictional fixture choices in public mode. The fields below describe the earlier ordering contract; they must not invite public visitors to enter real personal details. The API and both clients must adopt the revised public request contract together.
+**Current public demo:** [Spec 006](../006-demo-kitchen-order-board/spec.md) replaces identity/contact/address entry with server-owned fictional fixture choices. This is implemented in the API and both clients. Pickup and delivery use fictional details; delivery retains the fixed R$ 8,00 fee. Neither checkout collects visitor identity or payment credentials.
+
+### Historical private-development fields
+
+The fields below describe the earlier private-development contract, not public acceptance requirements. Public clients must not invite visitors to enter these personal details.
 
 Required in both fulfillment modes:
 
@@ -122,7 +126,7 @@ Use JSON over HTTP. Exact framework and deployment remain implementation choices
 
 ### `POST /orders`
 
-Request contains an idempotency key, locale, fulfillment type, customer name and phone, required delivery address only when delivery is selected, and cart lines with flavor/size/crust IDs, removed ingredient IDs, extra topping IDs, and quantity. The request does not contain an authoritative price.
+In public mode, the request contains an idempotency key, locale, fulfillment type, server-owned fictional fixture choices, and cart lines with flavor/size/crust IDs, removed ingredient IDs, extra topping IDs, and quantity, as defined by Spec 006. It rejects visitor identity/contact/address fields and does not contain an authoritative price. The earlier customer-name/phone/address payload applies only to private development mode.
 
 - Validate every identifier, option combination, quantity, and required field against the menu contract.
 - Recalculate all prices and return the created order with a demo order code, status `received`, canonical line items, item subtotal, delivery fee, and total in BRL cents.
@@ -139,21 +143,21 @@ Shared contracts in `packages/contracts/` define request/response shapes, stable
 
 ## Acceptance criteria
 
-- [ ] The website matches the selected visual reference and works at mobile and desktop widths.
-- [ ] A customer can complete the full structured journey without chat or account creation.
-- [ ] All five flavors, three sizes, crust choices, ingredient removals, extras, quantities, and price rules match this spec.
-- [ ] API totals match the displayed totals, including the delivery fee, and invalid options cannot be submitted.
-- [ ] Pickup and delivery collect the required fields and no payment credentials.
-- [ ] The order is persisted as a demo order, receives a unique tracking code, starts as `received`, and can be looked up without revealing personal contact/address data.
-- [ ] Failed submission preserves the customer's work; retrying with the same idempotency key does not create a duplicate.
-- [ ] All menu, validation, checkout, confirmation, and status surfaces are available in `pt-BR` and `en-US`, with BRL amounts in both.
-- [ ] Demo-only labels are visible before submission and on confirmation/status pages; no claim of real payment or fulfillment is made.
+- [x] The website matches the selected visual reference and works at mobile and desktop widths.
+- [x] A customer can complete the full structured journey without chat or account creation.
+- [x] All five flavors, three sizes, crust choices, ingredient removals, extras, quantities, and price rules match this spec.
+- [x] API totals match the displayed totals, including the delivery fee, and invalid options cannot be submitted.
+- [x] Pickup and delivery use server-owned fictional details under Spec 006, retain the fixed delivery fee, and collect no visitor identity or payment credentials.
+- [x] The order is persisted as a demo order, receives a unique tracking code, starts as `received`, and can be looked up without revealing personal contact/address data.
+- [x] Failed submission preserves the customer's work; retrying with the same idempotency key does not create a duplicate.
+- [x] All menu, validation, checkout, confirmation, and status surfaces are available in `pt-BR` and `en-US`, with BRL amounts in both.
+- [x] Demo-only labels are visible before submission and on confirmation/status pages; no claim of real payment or fulfillment is made.
 
 ## Decisions fixed by this spec
 
 - The first implementation is a web-first vertical slice with API, shared contracts, and Supabase persistence; Flutter and chat follow later.
 - Catalog and prices are fictional fixtures as listed above, used consistently in both locales.
-- Checkout supports pickup and delivery, with the fixed demo delivery fee and required fields above.
+- Public checkout supports pickup and delivery with the fixed demo delivery fee and server-owned fictional details defined by Spec 006; the historical private fields are not public requirements.
 - Customer order status starts at `received`; no customer-visible simulated status progression is fabricated.
 
 ## Local validation
@@ -165,4 +169,4 @@ Rechecked on 2026-10-25 against the current public-demo implementation:
 - `npm run build` — contracts, API, and React production build passed.
 - Ran the live React app at 390×844 and 1365×768 against the local public-demo API. A Calabresa Grande with Catupiry-stuffed crust, removed onion, and extra bacon quoted R$ 79,00; delivery added R$ 8,00. Submission produced a fictional order at R$ 87,00 with status `received`, a demo code, and the no-real-payment/delivery notice.
 
-Spec 006 supersedes this spec's original public name/phone/address form with server-owned fictional fixtures. The live checkout exercised the delivery fixture, not real personal details. The acceptance checklist above is historical and still contains superseded field requirements; this validation record does not claim a fresh audit of every legacy combination or a hosted Supabase deployment.
+Spec 006 supersedes this spec's original public name/phone/address form with server-owned fictional fixtures. The live checkout exercised the delivery fixture, not real personal details. On 2026-10-25, the acceptance checklist was reconciled against this local validation and the [integrated release evidence](../release-validation.md); it now describes the current public-demo contract. The recorded API/SQL and browser checks, responsive visual inspection, and configured delivery journey support these criteria. This does not claim a fresh audit of every historical private-checkout combination or a hosted Supabase deployment.

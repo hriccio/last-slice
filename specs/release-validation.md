@@ -2,6 +2,12 @@
 
 Recorded on 2026-10-24 for the sequence 005 → revised 006 → integrated demo acceptance. Implementation commits: `1afc83b` (assistant) and `02b375e` (public kitchen). This is local implementation acceptance, not a public deployment record.
 
+## Current acceptance reconciliation (2026-10-25)
+
+Later validation supersedes the historical open-item statements below for HTTPS installation and human accessibility: Spec 003/008 record successful iPhone PWA installation and standalone launch, and Spec 005/006 record user-confirmed screen-reader and larger-text checks. Specs 001/002 now reflect the current public fictional-checkout contract and their recorded ordering evidence.
+
+The agreed deliverables are the React website, Flutter PWA on iOS and Android, and native Android. Native iOS is excluded. A direct Android browser installation/standalone check remains open in Spec 002. Hosted Supabase, cleanup/log retention, production capacity, and paid-assistant controls remain deployment gates; temporary staging uses an in-memory public-demo API and deterministic fake assistant.
+
 ## Automated evidence
 
 - `npm run build`: shared contracts, API TypeScript, and React production build pass.
@@ -17,7 +23,7 @@ The React production preview and Flutter release web build use the running publi
 
 These smoke journeys use local in-memory persistence and the deterministic local assistant. Durable SQL behavior is separately exercised by the migration/integration tests. They do not establish hosted Supabase readiness or load capacity.
 
-## Remaining release gates and limits
+## Release gates and limits at the original 2026-10-24 checkpoint
 
 - Apply both migrations to the intended Supabase project, configure server-only service credentials and vault-backed OpenAI access, and run the API in production public-demo mode. Paid calls fail closed without the durable ledger. Initial hosting uses one API process for volatile chat payload/result retrieval.
 - Verify hosted cleanup scheduling, platform request/access-log retention, secrets, and provider settings against the documented data-use notice. The repository supplies pg_cron scheduling when available plus API cleanup; no hosted schedule or infrastructure logs were inspected here.

@@ -1,17 +1,17 @@
 # 002 — Flutter cross-platform demo ordering
 
-**Status:** Implemented for Flutter Web and Android; iOS acceptance deferred
+**Status:** Flutter Web/PWA and native Android ordering validated; iOS PWA installation validated; Android PWA installation pending
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [001 — Web demo ordering journey](../001-web-demo-ordering/spec.md)
 
 ## Outcome
 
-Deliver a second customer client in Flutter, separate from the React website, for browser/PWA, Android, and iOS targets. Customers start by browsing and complete a short guided flow: browse → customize → checkout → confirmation. The same Flutter/Dart UI and API client should build for web and native mobile. The app uses the existing API for menu, authoritative price quotes, order submission, and status lookup; it does not reimplement pricing rules.
+Deliver a second customer client in Flutter, separate from the React website, for browser/PWA and native Android targets. iOS is delivered through the PWA; native iOS is outside the agreed delivery scope. Customers start by browsing and complete a short guided flow: browse → customize → checkout → confirmation. The same Flutter/Dart UI and API client builds for web and native Android. The app uses the existing API for menu, authoritative price quotes, order submission, and status lookup; it does not reimplement pricing rules.
 
 ## Scope
 
 ### Included
 
-- Flutter customer app in `apps/mobile/` for web, Android, and iOS.
+- Flutter customer app in `apps/mobile/` for browser/PWA on iOS and Android, desktop browsers, and native Android.
 - An installable Flutter Web PWA with app name, theme colors, standalone display mode, and 192px/512px icons. Offline ordering is not required; the menu and order operations depend on the API.
 - Browse the five flavors from the API, view product details, and configure one pizza at a time.
 - Size, crust, ingredient removal, and up to three extra toppings using the choices returned by the API.
@@ -22,6 +22,7 @@ Deliver a second customer client in Flutter, separate from the React website, fo
 
 ### Excluded
 
+- Native iOS runner, Apple SDK/Xcode setup, native iOS builds, signing, and App Store submission. iOS acceptance covers the Safari PWA.
 - AI chat, voice ordering, account creation, push notifications, real payment, actual delivery, staff tools, and order status updates.
 - Any duplicated menu, pricing, validation, or order-state business rules in the Flutter client.
 
@@ -40,7 +41,7 @@ Keep browsing as the first screen. Use a clear forward progression with persiste
 1. **Browse:** fetch the localized menu from `GET /menu`. Show all five flavors, descriptions, and starting prices. A visible language control switches between `pt-BR` and `en-US`.
 2. **Customize:** choose one flavor, size, crust, removals, and optional extras. Request an authoritative quote and display the updated total before adding to cart.
 3. **Cart:** list each line with flavor, size, crust, removed ingredients, extras, quantity, and quoted line total. Let the customer change quantities, remove lines, choose pickup/delivery, and review the total.
-4. **Checkout:** collect the same fields as spec 001. Re-quote when fulfillment changes. Label the entire flow as demo-only before the explicit submit action.
+4. **Checkout:** show server-owned fictional fixture details per Spec 006, with no visitor identity/contact/address input. Re-quote when fulfillment changes. Label the entire flow as demo-only before the explicit submit action.
 5. **Confirmation:** show a demo order code, localized `received` status, order line details, BRL total, and an explicit statement that payment and fulfillment are simulated.
 6. **Tracking:** let a customer enter or reuse an order code. Show the current localized status, status explanation, line summary, and total. Do not invent status progress.
 
@@ -79,27 +80,29 @@ The mobile app calls `/quotes` after cart or fulfillment changes, debouncing onl
 The browser/PWA target's installability, web shell, Chromium workflow, and deployment requirements are further specified in [003 — Flutter Web PWA customer client](../003-flutter-web-pwa/spec.md).
 
 - Use one browser-compatible HTTP client for web and native targets; do not import `dart:io` into code compiled for web.
-- Configure the API origin with a build-time `API_BASE_URL` value. Default to `http://localhost:3001` in a local browser and iOS simulator, and `http://10.0.2.2:3001` on Android emulator. A physical device needs the development computer's LAN address. Production URLs must use HTTPS and allow the deployed web origin through API CORS.
+- Configure the API origin with a build-time `API_BASE_URL` value. Default to `http://localhost:3001` in a local browser and `http://10.0.2.2:3001` on Android emulator. A physical device needs the development computer's LAN address. Production URLs must use HTTPS and allow the deployed web origin through API CORS.
 - Serve the PWA over HTTPS in production (localhost is acceptable for local development). Keep the API origin configurable at build time.
 - Do not include service-role credentials or Supabase access in the app. It talks only to the TypeScript API.
 - Use Flutter SDK and Dart SDK versions selected by the implementation environment. Avoid additional packages unless needed for a requirement in this spec.
 
 ## Acceptance criteria
 
-- [ ] Flutter Web launches into a localized menu fetched from the API and can be installed from a compatible browser using its manifest and icons.
-- [ ] Android and iOS Flutter targets launch into the same localized customer flow.
-- [ ] The customer can complete browse → customize → cart → checkout → confirmation without chat or an account.
-- [ ] Every configurable option comes from the API; totals update through `POST /quotes` and match API order totals.
-- [ ] Cart and confirmation show size, crust, removed ingredients, extras, and quantity correctly.
-- [ ] Pickup and delivery fields, fixed fee, demo labels, and no-payment behavior match spec 001.
-- [ ] Order submission uses the existing API and idempotency behavior; status lookup shows persisted state without exposing contact/address data.
-- [ ] All customer-facing menu, validation, checkout, confirmation, and status text is available in `pt-BR` and `en-US`.
-- [ ] The interface follows the supplied customer mobile visual references, adapts to narrow screens, and keeps the next action and total visible.
-- [ ] The app remains usable when API calls fail and preserves cart/form state for retry.
+- [x] Flutter Web launches into a localized menu fetched from the API and can be installed from a compatible browser using its manifest and icons.
+- [x] The native Android Flutter target launches into the same localized customer flow.
+- [x] On iOS Safari, the HTTPS PWA completes demo checkout, installs to the Home Screen, and launches the ordering experience in standalone mode.
+- [ ] On Android, the HTTPS PWA offers installation and launches the ordering experience from its installed icon in standalone mode.
+- [x] The customer can complete browse → customize → cart → checkout → confirmation without chat or an account.
+- [x] Every configurable option comes from the API; totals update through `POST /quotes` and match API order totals.
+- [x] Cart and confirmation show size, crust, removed ingredients, extras, and quantity correctly.
+- [x] Pickup/delivery fictional fixture details follow Spec 006; the fixed fee, demo labels, and no-payment behavior match Spec 001.
+- [x] Order submission uses the existing API and idempotency behavior; status lookup shows persisted state without exposing contact/address data.
+- [x] All customer-facing menu, validation, checkout, confirmation, and status text is available in `pt-BR` and `en-US`.
+- [x] The interface follows the supplied customer mobile visual references, adapts to narrow screens, and keeps the next action and total visible.
+- [x] The app remains usable when API calls fail and preserves cart/form state for retry.
 
 ## Decisions fixed by this spec
 
-- Flutter reuses the existing API, adding `POST /quotes` for server-authoritative cart previews, and targets web/PWA and native mobile from one Dart codebase. React remains a separate web customer client.
+- Flutter reuses the existing API, adding `POST /quotes` for server-authoritative cart previews, and targets web/PWA and native Android from one Dart codebase. iOS and Android browser delivery use the PWA; native iOS is excluded. React remains a separate web customer client.
 - The customer flow is structured and chat-free in this slice; contextual AI help gets a separate spec.
 - Locale defaults to `pt-BR` and persists only for the running app session.
 - The mobile UI does not advance order statuses; it displays the server's latest status.
@@ -113,4 +116,6 @@ Rechecked on 2026-10-25:
 - `flutter build web --release` — passed.
 - `npm run test:api` — all 15 API/SQL tests passed, including quote validation, canonical server pricing, public fictional checkout, idempotency, and privacy-limited order lookup.
 
-The integrated local release record also documents Flutter Web full-flow smoke journeys in both locales and Android emulator checkout. This rerun did not repeat those manual smoke journeys. iOS Safari/Home Screen installation remains a staging-device check; local Linux validation does not emulate iOS. The acceptance checklist remains open until the remaining platform and UX criteria are checked.
+The [integrated release record](../release-validation.md) documents Flutter Web full-flow smoke journeys in both locales and Android emulator checkout. [Spec 003](../003-flutter-web-pwa/spec.md) adds the 2026-10-25 bilingual Flutter Web checkout/tracking journeys, responsive visual checks, preserved checkout state on submission failure, and 20 passing widget tests. [Spec 004](../004-flutter-android-emulator/spec.md) records native Android launch, checkout, localization, and recovery acceptance. Together these support the checked ordering criteria above; the 18-test result in this section is the earlier checkpoint, not the later suite total.
+
+The TestKase iPhone 16/iOS 26.5 staging sessions completed fictional checkout and validated Safari Home Screen installation and standalone menu loading; see [Spec 008](../008-free-cloudflare-staging/spec.md). On 2026-10-25, the delivery scope was explicitly narrowed to the React website, Flutter PWA on iOS and Android, and native Android. Native iOS is excluded rather than deferred. Android PWA installation/standalone launch still requires a direct Android browser check; native Android and desktop Chromium evidence do not fulfill that platform criterion. Hosted Supabase and production controls remain separate release gates.

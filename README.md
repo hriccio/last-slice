@@ -35,7 +35,7 @@ npm run build
 
 ## Flutter app and PWA
 
-`apps/mobile/` is a separate Flutter client alongside the React website in `apps/web/`. The Flutter client targets the browser as an installable PWA and shares its Dart UI/API client with future Android and iOS builds. It needs Flutter with Dart 3.4 or newer. The web app shell and manifest are in `apps/mobile/web/`; a debug Android runner is checked in; an iOS runner is not part of this slice.
+`apps/mobile/` is a separate Flutter client alongside the React website in `apps/web/`. The Flutter client delivers an installable PWA for iOS and Android browsers and shares its Dart UI/API client with the native Android app. Native iOS builds are outside delivery scope. It needs Flutter with Dart 3.4 or newer. The web app shell and manifest are in `apps/mobile/web/`; a debug Android runner is checked in; an iOS runner is outside delivery scope.
 
 Start Flutter from the repository root after starting the API with `make dev`:
 
