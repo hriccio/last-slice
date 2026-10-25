@@ -103,3 +103,14 @@ The browser/PWA target's installability, web shell, Chromium workflow, and deplo
 - The customer flow is structured and chat-free in this slice; contextual AI help gets a separate spec.
 - Locale defaults to `pt-BR` and persists only for the running app session.
 - The mobile UI does not advance order statuses; it displays the server's latest status.
+
+## Local validation
+
+Rechecked on 2026-10-25:
+
+- `flutter analyze` — passed with no issues.
+- `flutter test` — all 18 existing widget tests passed (assistant, tracking, and public fictional-checkout coverage).
+- `flutter build web --release` — passed.
+- `npm run test:api` — all 15 API/SQL tests passed, including quote validation, canonical server pricing, public fictional checkout, idempotency, and privacy-limited order lookup.
+
+The integrated local release record also documents Flutter Web full-flow smoke journeys in both locales and Android emulator checkout. This rerun did not repeat those manual smoke journeys. iOS Safari/Home Screen installation remains a staging-device check; local Linux validation does not emulate iOS. The acceptance checklist remains open until the remaining platform and UX criteria are checked.
