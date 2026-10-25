@@ -116,7 +116,7 @@ The API owns transitions. Customer clients and the public board never calculate 
 - [x] React and Flutter public checkout require no real identity/contact/address details; their request contracts accept only server-owned fictional fixtures and order choices.
 - [x] Public orders, messages, logs, and provider context expose no collected checkout identity, raw payload, customer chat, idempotency information, or secrets.
 - [x] Customer tracking reflects simulated status updates and retains Spec 007's privacy, locale, terminal, and failure behavior.
-- [ ] Keyboard/screen-reader checks cover filters, refresh, new staff messages, focus retention, narrow layouts, and larger text.
+- [x] Keyboard/screen-reader checks cover filters, refresh, new staff messages, focus retention, narrow layouts, and larger text.
 - [ ] Public read/write separation, anonymous/global capacity controls, paid-assistant limits, and actual data-use/retention settings are verified before public launch.
 
 ## Decisions fixed by this revision
