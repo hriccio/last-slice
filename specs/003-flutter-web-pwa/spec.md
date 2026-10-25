@@ -1,6 +1,6 @@
 # 003 — Flutter Web PWA customer client
 
-**Status:** Local acceptance validated; published HTTPS installation acceptance pending
+**Status:** Local acceptance and published HTTPS installation validated
 **Depends on:** [000 — Product foundation](../000-foundation/spec.md), [001 — Web demo ordering journey](../001-web-demo-ordering/spec.md), [002 — Flutter cross-platform demo ordering](../002-mobile-demo-ordering/spec.md)
 
 ## Outcome
@@ -81,7 +81,7 @@ Flutter's `web-server` debugging mode may have reduced debugger support; it is a
 - [x] The app can complete the spec 002 ordering journey in both locales, including a demo order and status lookup.
 - [x] Browser quote totals agree with the API, and no order can be presented as real payment or fulfillment.
 - [x] The web manifest parses and contains the required app metadata, standalone mode, and 192px/512px icons.
-- [ ] A compatible browser offers installation when the app is served over HTTPS; the installed app opens directly into the Flutter ordering experience.
+- [x] A compatible browser offers installation when the app is served over HTTPS; the installed app opens directly into the Flutter ordering experience.
 - [x] The layout remains usable at desktop and narrow phone viewport sizes.
 - [x] When the API is unavailable, the app shows localized errors and does not fabricate menu data, prices, or successful orders.
 - [x] No privileged Supabase credentials are present in the web build or Flutter source.
@@ -103,4 +103,4 @@ Rechecked on 2026-10-25:
 - Stopped the API and verified the menu showed a localized connection error without fixture menu/prices; a failed order submission retained the checkout summary and retryable state without showing success. Widget tests cover both locales' initial API-down message and retry label.
 - This exposed and fixed the bilingual retry label in the menu error state.
 
-HTTPS installation and standalone Home Screen launch remain staging checks. A TestKase iPhone 16 session on iOS 26.5 loaded the deployed PWA, fetched the menu through the HTTPS API tunnel, switched locales, added a pizza to the cart, and completed a fictional demo checkout. The session's Safari share/menu interface did not expose an Add to Home Screen action, so PWA installation and standalone launch are still unverified.
+A TestKase iPhone 16 session on iOS 26.5 loaded the deployed PWA, fetched the menu through the HTTPS API tunnel, switched locales, added a pizza to the cart, and completed a fictional demo checkout. A repeat session on 2026-10-25 (`45798ffb-bc04-401c-a67f-1054da3ccf51`) validated HTTPS installation: scrolling Safari's Share sheet expanded the collapsed action list and revealed Add to Home Screen. The installation dialog had Open as Web App enabled. Adding Last Slice created its branded Home Screen icon; launching that icon opened the Flutter ordering experience and loaded the Portuguese menu without Safari's address bar or toolbar. The earlier missing action was a collapsed Share sheet; selecting an automation reference also opened the wrong adjacent action, so the successful installation used screenshot-based coordinates. The device session was ended after validation.
