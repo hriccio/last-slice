@@ -103,4 +103,4 @@ Rechecked on 2026-10-25:
 - Stopped the API and verified the menu showed a localized connection error without fixture menu/prices; a failed order submission retained the checkout summary and retryable state without showing success. Widget tests cover both locales' initial API-down message and retry label.
 - This exposed and fixed the bilingual retry label in the menu error state.
 
-HTTPS installation and standalone Home Screen launch remain staging checks. The local run does not emulate iOS Safari.
+HTTPS installation and standalone Home Screen launch remain staging checks. A TestKase iPhone 16 session on iOS 26.5 loaded the deployed PWA, fetched the menu through the HTTPS API tunnel, switched locales, added a pizza to the cart, and completed a fictional demo checkout. The session's Safari share/menu interface did not expose an Add to Home Screen action, so PWA installation and standalone launch are still unverified.
