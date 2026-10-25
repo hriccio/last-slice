@@ -67,12 +67,12 @@ The public demo must work without identifying a visitor. The revised [Spec 006](
 
 ## Acceptance criteria for the foundation
 
-- [ ] A customer can complete browse → customize → review/checkout → demo confirmation using structured controls, without chat.
-- [ ] The mobile flow supports a short forward progression and preserves selections when navigating between steps.
-- [ ] Optional contextual chat can assist without silently changing the cart or blocking structured checkout.
-- [ ] Web and mobile consume the same authoritative menu, customization, pricing, and order rules through the API/contracts boundary.
-- [ ] All customer-facing flows are available in `pt-BR` and `en-US` without mixed-language screens.
-- [ ] Every submitted order is simulated and clearly labeled as demo-only; no real payment credentials or real transaction processing are used.
+- [x] A customer can complete browse → customize → review/checkout → demo confirmation using structured controls, without chat.
+- [x] The mobile flow supports a short forward progression and preserves selections when navigating between steps.
+- [x] Optional contextual chat can assist without silently changing the cart or blocking structured checkout.
+- [x] Web and mobile consume the same authoritative menu, customization, pricing, and order rules through the API/contracts boundary.
+- [x] All customer-facing flows are available in `pt-BR` and `en-US` without mixed-language screens.
+- [x] Every submitted order is simulated and clearly labeled as demo-only; no real payment credentials or real transaction processing are used.
 
 These criteria define the target behavior. Individual implementation specs must refine them into testable, bounded delivery slices.
 
