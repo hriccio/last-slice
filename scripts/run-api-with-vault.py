@@ -8,6 +8,7 @@ vault = os.environ.get('CODEX_KC_VAULT')
 password = os.environ.get('CODEX_KC_SECRET')
 if not vault or not password:
     sys.exit('Configure CODEX_KC_VAULT and CODEX_KC_SECRET in your local environment first.')
+vault = os.path.expanduser(vault)
 try:
     result = subprocess.run(
         ['keepassxc-cli', 'show', '-s', '-a', 'password', vault,
@@ -35,6 +36,18 @@ if database_entry:
     if database_result.returncode or not database_result.stdout.strip():
         sys.exit('Could not unlock the vault or locate the Supabase credential.')
     env['SUPABASE_SERVICE_ROLE_KEY'] = database_result.stdout.strip()
+turnstile_entry = os.environ.get('TURNSTILE_VAULT_ENTRY')
+if turnstile_entry:
+    try:
+        turnstile_result = subprocess.run(
+            ['keepassxc-cli', 'show', '-s', '-a', 'password', vault, turnstile_entry],
+            input=password + '\n', text=True, capture_output=True, timeout=20,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        sys.exit('Could not read the Turnstile credential from the vault.')
+    if turnstile_result.returncode or not turnstile_result.stdout.strip():
+        sys.exit('Could not unlock the vault or locate the Turnstile credential.')
+    env['TURNSTILE_SECRET_KEY'] = turnstile_result.stdout.strip()
 # The API does not need the vault password after credential injection.
 env.pop('CODEX_KC_SECRET', None)
 env.pop('CODEX_KC_VAULT', None)

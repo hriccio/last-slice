@@ -1,6 +1,6 @@
 # 010 — Public demo API guardrails
 
-**Status:** Implemented; deployment configuration and live staging verification pending
+**Status:** Implemented and deployed; live accepted-challenge walkthrough pending browser access to Cloudflare Turnstile
 **Depends on:** [000 — Foundation](../000-foundation/spec.md), [008 — Free Cloudflare staging](../008-free-cloudflare-staging/spec.md), [009 — Assistant cart configuration](../009-assistant-cart-configuration/spec.md)
 
 ## Goal
@@ -39,8 +39,8 @@ Reduce casual cross-site abuse and automated submission volume against the publi
 - [x] Browser-originated protected operations require a token validated by Cloudflare Siteverify when staging guardrails are enabled; no-Origin native requests retain compatibility.
 - [x] React and Flutter Web request a fresh challenge token for protected operations and show retryable localized failures.
 - [x] Missing server verification configuration prevents guardrail-enabled staging startup.
-- [ ] Staging walkthrough confirms menu browse, demo order, assistant response, and proposal confirmation; failed challenge attempts create no operation.
+- [ ] Staging walkthrough confirms menu browse, demo order, assistant response, and proposal confirmation; failed challenge attempts create no operation. Current staging API and both locales are reachable, and missing-token browser requests receive 403. The available Brave profiles block the Turnstile script, preventing accepted-challenge flows; see [validation](validation.md).
 
 ## Validation
 
-Run the API and web builds, API tests, Flutter analysis/build, and focused browser checks for both locales and rejected/accepted challenge cases. Record deployment secrets only in the runtime secret store, never in repository files or frontend output.
+Run the API and web builds, API tests, Flutter analysis/build, and focused browser checks for both locales and rejected/accepted challenge cases. Record deployment secrets only in the runtime secret store, never in repository files or frontend output. See the [staging validation record](validation.md).

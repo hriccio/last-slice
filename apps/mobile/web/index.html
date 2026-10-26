@@ -20,17 +20,21 @@
     <script>
       window.lastSliceTurnstileToken = function (siteKey) {
         return new Promise(function (resolve, reject) {
+          var loadTimer = setTimeout(function () { reject(new Error('challenge_unavailable')); }, 15000);
           function render() {
+            clearTimeout(loadTimer);
             var overlay = document.createElement('div');
             overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#000a;display:grid;place-items:center';
             var panel = document.createElement('div');
             panel.style.cssText = 'padding:24px;background:#191919;border-radius:16px';
             overlay.appendChild(panel); document.body.appendChild(overlay);
-            window.turnstile.render(panel, {sitekey:siteKey, callback:function(token){overlay.remove();resolve(token);}, 'error-callback':function(){overlay.remove();reject(new Error('challenge_unavailable'));}, 'expired-callback':function(){overlay.remove();reject(new Error('challenge_expired'));}});
+            var challengeTimer = setTimeout(function () { overlay.remove(); reject(new Error('challenge_unavailable')); }, 45000);
+            function finish(callback) { return function (value) { clearTimeout(challengeTimer); overlay.remove(); callback(value); }; }
+            window.turnstile.render(panel, {sitekey:siteKey, callback:finish(resolve), 'error-callback':finish(function(){reject(new Error('challenge_unavailable'));}), 'expired-callback':finish(function(){reject(new Error('challenge_expired'));})});
           }
           if (window.turnstile) render();
-          else if (document.querySelector('[data-turnstile-script]')) document.querySelector('[data-turnstile-script]').addEventListener('load', render, {once:true});
-          else { var script=document.createElement('script'); script.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'; script.async=true; script.defer=true; script.dataset.turnstileScript='true'; script.onload=render; script.onerror=function(){reject(new Error('challenge_unavailable'));}; document.head.appendChild(script); }
+          else if (document.querySelector('[data-turnstile-script]')) { var existing=document.querySelector('[data-turnstile-script]'); existing.addEventListener('load',render,{once:true}); existing.addEventListener('error',function(){clearTimeout(loadTimer);reject(new Error('challenge_unavailable'));},{once:true}); }
+          else { var script=document.createElement('script'); script.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'; script.async=true; script.defer=true; script.dataset.turnstileScript='true'; script.onload=render; script.onerror=function(){clearTimeout(loadTimer);reject(new Error('challenge_unavailable'));}; document.head.appendChild(script); }
         });
       };
     </script>

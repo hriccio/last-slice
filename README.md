@@ -140,7 +140,7 @@ Staging uses the existing Supabase project `tityohurziwhqmlybvye`, the productio
 
 Apply all `supabase/migrations/` files in order before starting, including the staging service-role grant migration. They seed the menu, enable RLS, restrict privileged RPC execution to the server, and schedule public-demo cleanup every five minutes when pg_cron is available. The initial MCP application on 2026-10-25 recorded server-generated migration versions; see Spec 008 for the mapping before using CLI migration push/pull against this project.
 
-Provide `SUPABASE_URL=https://tityohurziwhqmlybvye.supabase.co`, `SUPABASE_SERVICE_ROLE_KEY`, and `ASSISTANT_API_KEY` through the environment or an ignored root `.env.staging` file. The staging launcher also accepts `SUPABASE_KEY` and `OPENAI_API_KEY` aliases. The database key must be a server secret or this project's service-role key; public/anon keys are rejected. Never supply either secret to customer builds. Then run:
+Provide `SUPABASE_URL=https://tityohurziwhqmlybvye.supabase.co`, `SUPABASE_SERVICE_ROLE_KEY`, `ASSISTANT_API_KEY`, and `TURNSTILE_SECRET_KEY` through the environment or an ignored root `.env.staging` file. The staging launcher also accepts `SUPABASE_KEY` and `OPENAI_API_KEY` aliases. The database key must be a server secret or this project's service-role key; public/anon keys are rejected. Never supply server secrets to customer builds. Then run:
 
 ```sh
 npm run build
@@ -152,13 +152,14 @@ The launcher requires the agreed project and real OpenAI provider/model, forces 
 ```sh
 SUPABASE_URL=https://tityohurziwhqmlybvye.supabase.co \
 SUPABASE_VAULT_ENTRY=SUPABASE_KEY \
+TURNSTILE_VAULT_ENTRY=last_slice_turnstile_staging \
 python3 scripts/run-api-with-vault.py npm run start:api:staging
 ```
 
-Expose port 3001 through the existing Cloudflare Quick Tunnel workflow, then redeploy the PWA with `STAGING_API_BASE_URL` set to that tunnel's HTTPS origin. A new tunnel origin requires rebuilding/redeploying the PWA. Verify `/config` reports `publicDemo: true` and `persistence: "supabase"`, complete a fictional order, restart the API and retrieve the order, and verify one real assistant request plus its durable accounting. Keep kitchen write routes inaccessible publicly. No keys or raw chat text belong in validation records.
+Expose port 3002 through a Cloudflare Quick Tunnel, then rebuild and redeploy both clients with `STAGING_API_BASE_URL` set to that tunnel's HTTPS origin and `TURNSTILE_SITE_KEY` set to the public site key for the two staging hostnames. A new tunnel origin requires rebuilding/redeploying both clients. Verify `/config` reports `publicDemo: true` and `persistence: "supabase"`, complete a fictional order, and check the assistant and proposal-confirmation flows. Keep kitchen write routes inaccessible publicly. No secrets or raw chat text belong in validation records.
 
 
-Staging integration was validated on 2026-10-25: hosted menu/order persistence, restart lookup, public kitchen read/write separation, and one real OpenAI response with durable cost settlement. The active staging API uses port 3002 and a temporary Quick Tunnel; the PWA remains at https://last-slice-pwa-staging.hriccio.workers.dev/. See [Spec 008](specs/008-free-cloudflare-staging/spec.md) for the current tunnel origin and validation record. The dedicated server credential is stored in the `SUPABASE_KEY` KeePassXC entry.
+Staging integration was validated on 2026-10-25: hosted menu/order persistence, restart lookup, public kitchen read/write separation, and one real OpenAI response with durable cost settlement. The active staging API uses port 3002 and a temporary Quick Tunnel; the PWA remains at https://last-slice-pwa-staging.hriccio.workers.dev/. See [Spec 010 validation](specs/010-public-demo-api-guardrails/validation.md) for the active tunnel origin and [Spec 008](specs/008-free-cloudflare-staging/spec.md) for the original integration evidence. The dedicated server credential is stored in the `SUPABASE_KEY` KeePassXC entry.
 
 
 ### React website staging
@@ -174,11 +175,12 @@ Install the separate static deployment toolchain once, then build and preview th
 ```sh
 npm --prefix deploy/cloudflare-web ci
 STAGING_API_BASE_URL=https://your-current-api-tunnel.trycloudflare.com \
+TURNSTILE_SITE_KEY=your-public-turnstile-site-key \
   npm run deploy:cf:web:staging:dry-run
 npm --prefix deploy/cloudflare-web run deploy:staging -- --prebuilt
 ```
 
-`npm run deploy:cf:web:staging` builds and publishes in one command when `STAGING_API_BASE_URL` is set. The React build receives only the public API origin through `VITE_API_URL`. Redeploy both clients whenever the temporary API tunnel origin changes.
+`npm run deploy:cf:web:staging` builds and publishes in one command when `STAGING_API_BASE_URL` and `TURNSTILE_SITE_KEY` are set. The React build receives the public API origin and Turnstile site key; the Turnstile secret remains on the API. Redeploy both clients whenever the temporary API tunnel origin changes.
 
 
 ### Assistant cart proposals (Spec 009)
