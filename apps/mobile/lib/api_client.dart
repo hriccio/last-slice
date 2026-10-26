@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import 'api_origin.dart' as platform;
 import 'models.dart';
+import 'turnstile.dart';
 
 class ApiException implements Exception {
   const ApiException(this.messageKey, this.statusCode, {this.resetsAt});
@@ -22,6 +23,7 @@ class ApiClient {
   final http.Client _client;
 
   static const _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
+  static const _turnstileSiteKey = String.fromEnvironment('TURNSTILE_SITE_KEY');
 
   String get baseUrl => (_configuredBaseUrl.isNotEmpty
           ? _configuredBaseUrl
@@ -31,13 +33,18 @@ class ApiClient {
   Future<Json> get(String path) async =>
       _read(await _client.get(Uri.parse('$baseUrl$path')));
 
-  Future<Json> post(String path, Json payload) async => _read(
-        await _client.post(
+  Future<Json> post(String path, Json payload) async {
+    final body = Map<String, dynamic>.from(payload);
+    if (path == '/orders') {
+      final token = await getTurnstileToken(_turnstileSiteKey);
+      if (token != null) body['turnstileToken'] = token;
+    }
+    return _read(await _client.post(
           Uri.parse('$baseUrl$path'),
           headers: const {'content-type': 'application/json'},
-          body: jsonEncode(payload),
-        ),
-      );
+          body: jsonEncode(body),
+        ));
+  }
 
   Future<Json> assistantRequest(String method, String path,
       {required String capability, Json? payload}) async {
@@ -46,7 +53,14 @@ class ApiClient {
       'content-type': 'application/json',
       'authorization': 'Bearer $capability'
     });
-    if (payload != null) request.body = jsonEncode(payload);
+    if (payload != null) {
+      final body = Map<String, dynamic>.from(payload);
+      if (method == 'POST' && (path == '/assistant/messages' || path.endsWith('/confirm'))) {
+        final token = await getTurnstileToken(_turnstileSiteKey);
+        if (token != null) body['turnstileToken'] = token;
+      }
+      request.body = jsonEncode(body);
+    }
     return _read(await http.Response.fromStream(await _client.send(request))
         .timeout(const Duration(seconds: 12)));
   }

@@ -17,6 +17,9 @@ const assistantQueue=db?new AssistantQueue(new SupabaseLedger(db),previewProvide
 const kitchenMode=process.env.KITCHEN_MODE||(process.env.NODE_ENV==='production'?'public-demo':'manual');
 if(!['manual','public-demo'].includes(kitchenMode))throw new Error('Invalid KITCHEN_MODE');
 const publicDemo=kitchenMode==='public-demo';
+const guardrails=process.env.PUBLIC_DEMO_GUARDRAILS==='true';
+const allowedOrigins=new Set((process.env.ALLOWED_ORIGINS||'http://localhost:5173,http://localhost:4173').split(',').map(value=>value.trim()).filter(Boolean));
+if(guardrails&&(!process.env.TURNSTILE_SECRET_KEY||!process.env.ALLOWED_ORIGINS))throw new Error('Public demo guardrails require TURNSTILE_SECRET_KEY and ALLOWED_ORIGINS');
 if(process.env.NODE_ENV==='production'&&(!publicDemo||!db))throw new Error('Production requires public-demo mode and Supabase');
 const memoryOrders=new Map<string,any>(), idempotency=new Map<string,{payload:string;order:any}>();
 const kitchenSimulation=new MemoryKitchen(memoryOrders);
@@ -24,8 +27,17 @@ let simulationBusy=false;
 async function kitchenTick(){if(simulationBusy)return;simulationBusy=true;try{if(db){const {error}=await db.rpc('advance_demo_kitchen');if(error)throw error;}else kitchenSimulation.tick();}catch{}finally{simulationBusy=false;}}
 async function cleanup(){try{if(db)await db.rpc('cleanup_public_demo');else kitchenSimulation.cleanup();for(const [key,value]of idempotency)if(value.order.publicDemo&&value.order.expiresAt<=Date.now())idempotency.delete(key);}catch{}}
 if(publicDemo){const tick=setInterval(()=>void kitchenTick(),5000);tick.unref();const sweep=setInterval(()=>void cleanup(),60000);sweep.unref();void cleanup();}
-const send=(res:any,status:number,data:any)=>{res.writeHead(status,{'content-type':'application/json','cache-control':'no-store','access-control-allow-origin':'*','access-control-allow-headers':'content-type,idempotency-key,authorization','access-control-allow-methods':'GET,POST,PATCH,DELETE,OPTIONS'});res.end(JSON.stringify(data));};
+const corsHeaders={'access-control-allow-headers':'content-type,idempotency-key,authorization','access-control-allow-methods':'GET,POST,PATCH,DELETE,OPTIONS','vary':'Origin'};
+const send=(res:any,status:number,data:any)=>{res.writeHead(status,{'content-type':'application/json','cache-control':'no-store',...corsHeaders});res.end(JSON.stringify(data));};
 const safeError=(code:string,status=400,fieldErrors?:Record<string,string>)=>({status,body:{error:{code,messageKey:`errors.${code}`,...(fieldErrors?{fieldErrors}:{})}}});
+const clientLimits=new Map<string,{start:number;count:number}>();
+function clientKey(req:any){const forwarded=req.headers['cf-connecting-ip']||req.socket.remoteAddress||'unknown';return String(forwarded).split(',')[0].trim().slice(0,128);}
+function pruneClientLimits(now=Date.now()){for(const [key,value]of clientLimits)if(now-value.start>=60000)clientLimits.delete(key);while(clientLimits.size>10000)clientLimits.delete(clientLimits.keys().next().value!);}
+const limitSweep=setInterval(()=>pruneClientLimits(),60000);limitSweep.unref();
+function rateLimit(req:any,res:any,bucket:string,max:number,windowMs=60000){const now=Date.now(),key=`${bucket}:${clientKey(req)}`;let item=clientLimits.get(key);if(!item||now-item.start>=windowMs){item={start:now,count:0};clientLimits.set(key,item);}item.count++;if(clientLimits.size>10000)pruneClientLimits(now);
+ if(item.count>max){const retry=Math.max(1,Math.ceil((item.start+windowMs-now)/1000));res.setHeader('retry-after',String(retry));send(res,429,{...safeError('demo_capacity_reached',429).body,retryAfterSeconds:retry});return false;}return true;}
+async function verifyTurnstile(token:unknown,ip:string){if(!guardrails)return true;if(typeof token!=='string'||token.length<10||token.length>4096)return false;try{const response=await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({secret:process.env.TURNSTILE_SECRET_KEY!,response:token,remoteip:ip})});const result=await response.json() as {success?:boolean;hostname?:string};const permittedHosts=new Set([...allowedOrigins].map(value=>new URL(value).hostname));return response.ok&&result.success===true&&typeof result.hostname==='string'&&permittedHosts.has(result.hostname);}catch{return false;}}
+async function requireChallenge(req:any,res:any,input:any){if(!guardrails||!req.headers.origin)return true;const token=input?.turnstileToken;delete input.turnstileToken;if(!await verifyTurnstile(token,clientKey(req))){send(res,403,safeError('challenge_failed',403).body);return false;}return true;}
 async function body(req:any){return boundedBody(req,24000)}
 const assistantMaxBytes=24_000, assistantMaxMessage=1_200, assistantMaxHistory=10, assistantTimeoutMs=8_000;
 async function boundedBody(req:any,maxBytes:number){let raw='';let bytes=0;for await(const chunk of req){bytes+=Buffer.byteLength(chunk);if(bytes>maxBytes)throw new Error('body_too_large');raw+=chunk;}return JSON.parse(raw||'{}')}
@@ -100,8 +112,15 @@ function assistantError(res:any,error:unknown){
 let controlWindow=Date.now(),controlCalls=0;
 const server=createServer(async(req,res)=>{
  try{
- if(req.method==='OPTIONS'){res.writeHead(204,{'access-control-allow-origin':'*','access-control-allow-headers':'content-type,idempotency-key,authorization','access-control-allow-methods':'GET,POST,PATCH,DELETE,OPTIONS'});return res.end();}
+ const origin=typeof req.headers.origin==='string'?req.headers.origin:'';
+ if(origin&&!allowedOrigins.has(origin))return send(res,403,safeError('origin_not_allowed',403).body);
+ if(origin)res.setHeader('access-control-allow-origin',origin);
+ if(req.method==='OPTIONS'){res.writeHead(204,{...corsHeaders,...(origin?{'access-control-allow-origin':origin}:{})});return res.end();}
  const url=new URL(req.url||'/',`http://${req.headers.host||'localhost'}`);
+ if(publicDemo&&(['/orders','/quotes','/menu'].includes(url.pathname)||url.pathname.startsWith('/orders/')||url.pathname.startsWith('/kitchen/'))&&!rateLimit(req,res,'public-read',120))return;
+ if(url.pathname==='/orders'&&req.method==='POST'&&!rateLimit(req,res,'order-submit',10))return;
+ if(url.pathname==='/assistant/messages'&&req.method==='POST'&&!rateLimit(req,res,'assistant-submit',8))return;
+ if(url.pathname.startsWith('/assistant/')&&!rateLimit(req,res,'assistant-api',60))return;
  if(req.method==='GET'&&url.pathname==='/health')return send(res,200,{ok:true});
  if(req.method==='GET'&&url.pathname==='/config')return send(res,200,{publicDemo,mode:kitchenMode,persistence:db?'supabase':'memory',demoOnly:true});
  if(publicDemo&&(['/orders','/quotes','/menu'].includes(url.pathname)||url.pathname.startsWith('/orders/'))){
@@ -179,7 +198,7 @@ const server=createServer(async(req,res)=>{
    const cap=conversationCapability(req.headers.authorization);
    if(req.method==='DELETE'&&!proposalMatch[2]){proposals.discard(proposalMatch[1],cap);return send(res,200,{dismissed:true});}
    if(req.method!=='POST'||!proposalMatch[2])return send(res,404,safeError('not_found',404).body);
-   const input=await body(req);if(!input||Object.keys(input).some(k=>k!=='cartSnapshot'))throw new Error('proposal_invalid');
+   const input=await body(req);if(req.method==='POST'&&!await requireChallenge(req,res,input))return;if(!input||Object.keys(input).some(k=>k!=='cartSnapshot'))throw new Error('proposal_invalid');
    const proposal=proposals.confirm(proposalMatch[1],cap,cartSnapshot(input.cartSnapshot),await proposalMenu());
    return send(res,200,{proposal});
   }catch(e){const code=e instanceof Error&&['proposal_expired','proposal_stale','proposal_invalid'].includes(e.message)?e.message:'proposal_invalid';return send(res,code==='proposal_expired'?410:code==='proposal_stale'?409:400,safeError(code).body);}
@@ -195,6 +214,7 @@ const server=createServer(async(req,res)=>{
  }
  if(req.method==='POST'&&url.pathname==='/assistant/messages'){
   let input:any;try{input=await boundedBody(req,assistantMaxBytes)}catch(error){return send(res,400,safeError(error instanceof Error&&error.message==='body_too_large'?'assistant_request_too_large':'validation_error').body)}
+  if(!await requireChallenge(req,res,input))return;
   if(!input||typeof input!=='object'||Array.isArray(input))return send(res,400,safeError('validation_error').body);
   const fields:Record<string,string>={};
   if(!isLocale(input.locale))fields.locale='validation.locale';
@@ -267,6 +287,7 @@ const server=createServer(async(req,res)=>{
  }
  if(req.method==='POST'&&url.pathname==='/orders'&&publicDemo){
   let input:any;try{input=await body(req);}catch{return send(res,400,safeError('validation_error').body);}
+  if(!await requireChallenge(req,res,input))return;
   const allowed=['idempotencyKey','locale','fulfillment','fixtureId','lines'];
   try{
    if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>!allowed.includes(k)))throw new Error();

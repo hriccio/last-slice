@@ -15,6 +15,7 @@ if (!process.env.ASSISTANT_API_KEY && process.env.OPENAI_API_KEY) process.env.AS
 const required = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'ASSISTANT_API_KEY'];
 const missing = required.filter(name => !process.env[name]?.trim());
 if (missing.length) throw new Error(`Missing staging configuration: ${missing.join(', ')}`);
+if (!process.env.TURNSTILE_SECRET_KEY?.trim()) throw new Error('Missing staging configuration: TURNSTILE_SECRET_KEY');
 if (process.env.SUPABASE_URL !== 'https://tityohurziwhqmlybvye.supabase.co') {
   throw new Error('Staging must use the agreed Supabase project.');
 }
@@ -41,6 +42,8 @@ const env = {
   ...process.env,
   NODE_ENV: 'production',
   KITCHEN_MODE: 'public-demo',
+  PUBLIC_DEMO_GUARDRAILS: 'true',
+  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'https://last-slice-pwa-staging.hriccio.workers.dev,https://last-slice-web-staging.hriccio.workers.dev',
   ASSISTANT_PROVIDER: 'openai',
   ASSISTANT_MODEL: 'gpt-5-nano-2025-08-07',
 };

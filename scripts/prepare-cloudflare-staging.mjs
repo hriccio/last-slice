@@ -7,13 +7,15 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const deployRoot = path.join(repoRoot, 'deploy/cloudflare-pwa');
 const flutterOutput = path.join(repoRoot, 'apps/mobile/build/web');
 const apiBaseUrl = process.env.STAGING_API_BASE_URL;
+const turnstileSiteKey = process.env.TURNSTILE_SITE_KEY;
 
 if (!apiBaseUrl || new URL(apiBaseUrl).protocol !== 'https:') {
   throw new Error('Set STAGING_API_BASE_URL to the HTTPS public-demo API origin.');
 }
+if (!turnstileSiteKey) throw new Error('Set TURNSTILE_SITE_KEY for the public staging PWA.');
 
 const flutter = spawnSync('flutter', [
-  'build', 'web', '--release', `--dart-define=API_BASE_URL=${apiBaseUrl}`,
+  'build', 'web', '--release', `--dart-define=API_BASE_URL=${apiBaseUrl}`, `--dart-define=TURNSTILE_SITE_KEY=${turnstileSiteKey}`,
 ], { cwd: path.join(repoRoot, 'apps/mobile'), stdio: 'inherit' });
 
 if (flutter.error) throw flutter.error;

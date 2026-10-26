@@ -1,4 +1,5 @@
 import React,{useEffect,useRef,useState} from 'react';
+import {getTurnstileToken} from './turnstile';
 import {MessageCircle,Send,X} from 'lucide-react';
 import type {AssistantTicket,AssistantTurn,Locale,CartSnapshot,CartProposal,ProposalCandidate} from '@last-slice/contracts';
 type Context={cartSnapshot?:CartSnapshot;screen:'menu'|'customization'|'cart'|'checkout';selection?:unknown;cartLines?:unknown[];fulfillment?:string};
@@ -62,7 +63,7 @@ export function AssistantChat({locale,context,visible,onOpen,onClose,onApply,onR
   if(candidate.current?.text!==text||candidate.current.contextKey!==contextKey)candidate.current={id:crypto.randomUUID(),text,contextKey,cap:cap.current,payload:{locale,message:text,history,context:{...context,...(proposalDraft.current?{draftProposal:proposalDraft.current}:{})}}};
   const request=candidate.current;busyRef.current=true;setBusy(true);setError('');setStale(false);
   try{
-   const response=await fetch(`${api}/assistant/messages`,{method:'POST',headers:headers(),body:JSON.stringify({...request.payload as object,requestId:request.id})});const body=await response.json();
+   const turnstileToken=await getTurnstileToken();const response=await fetch(`${api}/assistant/messages`,{method:'POST',headers:headers(),body:JSON.stringify({...request.payload as object,requestId:request.id,...(turnstileToken?{turnstileToken}:{})})});const body=await response.json();
    if(!live.current||!visibleRef.current||candidate.current!==request){if(response.status===202)void cancelRemote(request.id,request.cap);return;}
    if(!response.ok){fail(body.error?.code||'assistant_unavailable',body.resetsAt);return;}
    setTurns(old=>[...old.filter(x=>x.id!==request.id),{role:'user' as const,content:text,id:request.id}].slice(-20));setMessage('');
@@ -77,7 +78,7 @@ export function AssistantChat({locale,context,visible,onOpen,onClose,onApply,onR
   const base=JSON.stringify(contextRef.current.cartSnapshot),token=cap.current,id=proposal.id;
   setApplying(true);setError('');
   try{
-   const r=await fetch(`${api}/assistant/proposals/${id}/confirm`,{method:'POST',headers:headers(),body:JSON.stringify({cartSnapshot:contextRef.current.cartSnapshot})});const body=await r.json();
+   const turnstileToken=await getTurnstileToken();const r=await fetch(`${api}/assistant/proposals/${id}/confirm`,{method:'POST',headers:headers(),body:JSON.stringify({cartSnapshot:contextRef.current.cartSnapshot,...(turnstileToken?{turnstileToken}:{})})});const body=await r.json();
    if(!live.current||cap.current!==token)return;
    if(!r.ok||base!==JSON.stringify(contextRef.current.cartSnapshot))throw new Error('proposal_stale');
    if(!appliedIds.current.has(id)){appliedIds.current.add(id);onApply(body.proposal);proposalDraft.current=null;setApplied(true);setTurns(old=>[...old,{role:'assistant' as const,content:ptxt.applied}].slice(-20));}

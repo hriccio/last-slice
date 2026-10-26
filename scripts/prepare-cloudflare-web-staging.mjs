@@ -7,14 +7,16 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const target = path.join(root, 'deploy/cloudflare-web');
 const output = path.join(root, 'apps/web/dist');
 const origin = process.env.STAGING_API_BASE_URL;
+const turnstileSiteKey = process.env.TURNSTILE_SITE_KEY;
 if (!origin || new URL(origin).protocol !== 'https:') {
   throw new Error('Set STAGING_API_BASE_URL to the HTTPS staging API origin.');
 }
+if (!turnstileSiteKey) throw new Error('Set TURNSTILE_SITE_KEY for the public staging website.');
 
 for (const workspace of ['@last-slice/contracts', '@last-slice/web']) {
   const build = spawnSync('npm', ['--workspace', workspace, 'run', 'build'], {
     cwd: root,
-    env: { ...process.env, VITE_API_URL: origin },
+    env: { ...process.env, VITE_API_URL: origin, VITE_TURNSTILE_SITE_KEY: turnstileSiteKey },
     stdio: 'inherit',
   });
   if (build.error) throw build.error;
