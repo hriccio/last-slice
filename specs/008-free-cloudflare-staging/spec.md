@@ -101,3 +101,17 @@ This validates the staging integrations. It does not certify production hosting 
 ### Spec 009 staging update (2026-10-25)
 
 Both frontend staging builds and the Supabase-backed Node API now support [reviewed assistant cart proposals](../009-assistant-cart-configuration/spec.md). The deployed React journey applied a real model proposal and then completed the separate explicit fictional checkout. Real Portuguese add and English update probes passed with duplicate confirmation returning the same result. Three model attempts cost US$0.00034870 total; no paid model calls occur during confirmation. The existing global budget/pacing and infrastructure tiers are retained. See [Spec 009 validation](../009-assistant-cart-configuration/validation.md) for full evidence.
+
+## Website link previews
+
+When a visitor shares the React staging homepage, crawlers must receive Open Graph title, description, canonical staging URL, locale, and an absolute HTTPS image URL in the initial HTML without JavaScript or API access. The static preview uses bilingual Portuguese/English demo wording because link crawlers do not have the visitor’s locale preference. The image reuses the licensed illustrative pizza photography, served locally as a 1200 × 630 JPEG below 5 MB.
+
+Acceptance: a LinkedInBot request returns HTTP 200 with these tags, and its image returns HTTP 200 with image/jpeg and the declared dimensions. Redeployment must preserve the current API origin and public Turnstile site key. Refresh the URL in LinkedIn Post Inspector after deployment when an authenticated LinkedIn session is available.
+
+Non-goals: per-order previews, crawler-specific rendering, new image services, or changes to ordering and PWA behavior.
+
+### Link preview validation (2026-10-26)
+
+- React TypeScript/Vite build and Cloudflare deployment dry run passed. Deployed web Worker version `94cd3897-1301-494f-bbfa-9165c4b5d5aa`; retained the existing API origin and public Turnstile key.
+- Live requests using `LinkedInBot/1.0` receive the Open Graph tags in initial HTML and the declared JPEG (HTTP 200, 1200 × 630, 110305 bytes).
+- Requested a fresh scrape in the authenticated LinkedIn Post Inspector. LinkedIn still reports “Unable to connect to server. Bad DNS, bad gateway, or invalid server address.” Its redirect trail shows `0 undefined`, so no successful LinkedIn fetch or thumbnail is established. Missing metadata is fixed, but a separate LinkedIn-to-staging connectivity issue remains; the inspector does not identify its precise cause. No hosting/domain changes were made.
