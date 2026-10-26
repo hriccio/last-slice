@@ -10,11 +10,12 @@
 
 - `npm run build`, `flutter analyze`, and `flutter build web --release` passed. Both Cloudflare staging builds passed before deployment. The deployed builds include a 45-second challenge timeout so an unrendered widget returns a recoverable error.
 - The PWA and React staging URLs return HTTP 200. The Portuguese and English menus return all five flavors and the exact expected `Access-Control-Allow-Origin` header.
-- A request with an unlisted browser origin is rejected with HTTP 403. A browser-originated `POST /orders` without a Turnstile token receives HTTP 403 `challenge_failed` before order validation or persistence.
+- A request with an unlisted browser origin is rejected with HTTP 403. A browser-originated `POST /orders` without a Turnstile token receives HTTP 403 `challenge_failed` before order validation or persistence, so no operation is created.
 - The React menu was checked in Portuguese and English. The Flutter PWA menu was checked in Portuguese and English.
+- The user completed the accepted-challenge staging flow successfully: menu browse, demo order, assistant response, and proposal confirmation.
 
-## Remaining live check
+## Outcome
 
-The available Brave profiles did not load `https://challenges.cloudflare.com/turnstile/v0/api.js`; no Turnstile frame appeared, and the order action stayed pending. The client now has a 45-second timeout, but the accepted-challenge path could not be completed in this browser environment. No demo order was created and no assistant/model request was sent during this walkthrough. Recheck order submission, assistant response, proposal confirmation, and missing-token recovery from a browser that permits the Cloudflare challenge script.
+The Spec 010 staging walkthrough passed, including both successful protected operations and rejection of a protected request without a challenge token.
 
 The Quick Tunnel and local API are temporary runtime processes. The staging API will be unavailable if either process stops, and a replacement tunnel URL requires rebuilding and redeploying both clients.
