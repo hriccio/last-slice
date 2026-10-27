@@ -130,3 +130,8 @@ The API owns transitions. Customer clients and the public board never calculate 
 ## Implementation checkpoint
 
 The runtime uses `KITCHEN_MODE=public-demo` (automatic in production), private service-role SQL functions, and the API's five-second worker. `202610240002_public_demo_simulation.sql` preserves private legacy rows, atomically writes stages/events, and installs cleanup with Supabase pg_cron when available. The initial runtime remains a single API process as specified for volatile assistant payloads. Deterministic SQL tests execute the actual migration and exercise source isolation, competing ticks, overdue stages after restart, terminal handling, and expiry. React/Flutter public checkout contains no editable contact/address fields. Full built-client evidence is recorded during final release acceptance.
+
+
+## Cloudflare staging execution amendment (2026-10-27)
+
+For Cloudflare-hosted staging, [Spec 008 execution design](../008-free-cloudflare-staging/worker-design.md) replaces local process timers with recurring approximately five-second Durable Object alarms. Existing atomic stages, overdue catch-up, terminal handling, and Supabase cleanup remain unchanged; alarm delivery is not an exact five-second guarantee.

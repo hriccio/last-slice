@@ -54,3 +54,7 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# API Worker local runtime/build state
+deploy/cloudflare-api/.cloudflare/
+deploy/cloudflare-api/.wrangler/

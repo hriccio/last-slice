@@ -1,6 +1,6 @@
 # 008 — Free Cloudflare staging for web and Flutter PWA validation
 
-**Status:** Existing tunnel staging validated; Cloudflare-hosted API revision proposed, not implemented
+**Status:** Cloudflare-hosted API and both clients deployed; validation evidence and remaining device/resource checks recorded
 **Depends on:** [002 — Flutter cross-platform demo ordering](../002-mobile-demo-ordering/spec.md), [003 — Flutter Web PWA customer client](../003-flutter-web-pwa/spec.md), [006 — Demo kitchen order board](../006-demo-kitchen-order-board/spec.md)
 
 ## Goal
@@ -123,13 +123,15 @@ Non-goals: per-order previews, crawler-specific rendering, new image services, o
 
 ## Cloudflare-hosted API revision (2026-10-27)
 
-**Status:** Proposed specification; implementation and deployment pending validation.
+**Status:** Implemented and deployed on Workers Free. See [hosted validation](worker-validation.md) for evidence and remaining device/resource checks.
 
 ### Goal and scope decision
 
 Host the shared public-demo API on Cloudflare Workers so the React website and Flutter PWA remain usable when the developer workstation, local Node process, or Quick Tunnel is stopped. Retain the existing Supabase project and API-owned business rules. Target Cloudflare Workers Free without activating a paid plan or paid add-ons.
 
 For this revision, Worker hosting supersedes the original requirements to use a local single-process API and Quick Tunnel and the prohibition on deploying the API as a Worker. It also supersedes Spec 010's Worker-runtime non-goal for this migration only. Existing validation records remain historical evidence. All product, privacy, localization, demo-only transaction, and abuse-control requirements continue to apply.
+
+The implementation design is recorded in [Hosted API execution design](worker-design.md), including transient ownership, scheduling, limiter scope, contract amendments, and capacity estimates.
 
 ### User flows
 
@@ -154,15 +156,15 @@ For this revision, Worker hosting supersedes the original requirements to use a 
 
 ### Acceptance criteria
 
-- [ ] A compatibility/design record identifies the hosted request handler, scheduling mechanism, transient-content ownership/routing, limiter scope, failure handling, and free-tier eligibility of every required Cloudflare resource. Any needed changes to Specs 005/006/009/010 are explicit before implementation.
-- [ ] API/contracts builds and relevant API tests pass for the Worker adapter; local development still works. Deployment dry run confirms compatible dependencies and bundle limits.
+- [x] A compatibility/design record identifies the hosted request handler, scheduling mechanism, transient-content ownership/routing, limiter scope, failure handling, and free-tier eligibility of every required Cloudflare resource. Any needed changes to Specs 005/006/009/010 are explicit before implementation.
+- [x] API/contracts builds and relevant API tests pass for the Worker adapter; local development still works. Deployment dry run confirms compatible dependencies and bundle limits.
 - [ ] Representative menu, quote, checkout, tracking, kitchen, assistant, and proposal requests fit measured free-tier execution limits. Record current quota sources, observed usage, and an estimated daily request budget including polling/scheduled work. No paid resource or plan is enabled.
 - [ ] With local API and tunnel stopped, both deployed clients complete browse → customize → fictional checkout → tracking in both locales against the stable API origin; kitchen progression and expiry continue without visitors or workstation processes.
-- [ ] Allowed/disallowed origins, challenge success/failure, missing-secret failure, read/write separation, native no-Origin compatibility, rate-limit responses, and concurrent-isolate behavior pass focused checks. Invalid challenges create no protected operation.
-- [ ] Deterministic tests cover queue ordering, concurrent dispatch, duplicate sends/polls, cancellation, lease expiry, isolate eviction/replacement, UTC rollover, unknown provider outcome, proposal ownership/expiry, and duplicate confirmation. No case creates an automatic extra paid attempt or bypasses global budget/pacing.
-- [ ] A bounded live assistant probe retrieves a real response and confirms a reviewed proposal through the deployed API; duplicate requests add no paid attempt. Record sanitized ledger evidence and actual token charges within the existing cap.
-- [ ] Deployment replacement preserves stored orders and safely handles transient assistant state. Frontend artifacts and logs contain no server secrets or raw chat content.
-- [ ] Record Worker versions, stable origin, quota measurements, checks run/not run, and remaining limitations in a new validation section. Update README startup/deployment guidance to distinguish hosted staging from local development. Mark this revision implemented only after these gates pass.
+- [x] Allowed/disallowed origins, challenge success/failure, missing-secret failure, read/write separation, native no-Origin compatibility, rate-limit responses, and concurrent-isolate behavior pass focused checks. Invalid challenges create no protected operation.
+- [x] Deterministic tests cover queue ordering, concurrent dispatch, duplicate sends/polls, cancellation, lease expiry, isolate eviction/replacement, UTC rollover, unknown provider outcome, proposal ownership/expiry, and duplicate confirmation. No case creates an automatic extra paid attempt or bypasses global budget/pacing.
+- [x] A bounded live assistant probe retrieves a real response and confirms a reviewed proposal through the deployed API; duplicate requests add no paid attempt. Record sanitized ledger evidence and actual token charges within the existing cap.
+- [x] Deployment replacement preserves stored orders and safely handles transient assistant state. Frontend artifacts and logs contain no server secrets or raw chat content.
+- [x] Record Worker versions, stable origin, quota measurements, checks run/not run, and remaining limitations in a new validation section. Update README startup/deployment guidance to distinguish hosted staging from local development. Mark this revision implemented only after these gates pass.
 
 ### Cutover and recovery
 
@@ -177,3 +179,6 @@ Validate the API Worker before rebuilding either client. Deploy both clients aga
 ### Pricing reference
 
 Cloudflare's [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/) and [platform limits](https://developers.cloudflare.com/workers/platform/limits/) were consulted on 2026-10-27: Free currently allows 100,000 Worker requests per day and 10 ms CPU per invocation; network waiting is distinct from CPU time. These are planning constraints, not evidence that this API fits. Recheck documentation and account configuration during implementation. No migration, deployment, or live paid probe was performed for this specification revision.
+
+
+Hosted migration evidence: [2026-10-27 validation](worker-validation.md). Unchecked hosted acceptance items remain open where full PWA device journeys or broader resource measurements have not been established; original tunnel checks are historical only.

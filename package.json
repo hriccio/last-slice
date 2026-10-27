@@ -25,7 +25,11 @@
     "deploy:cf:staging": "npm run prepare:cf:staging && npm --prefix deploy/cloudflare-pwa run deploy:staging",
     "prepare:cf:web:staging": "node scripts/prepare-cloudflare-web-staging.mjs",
     "deploy:cf:web:staging:dry-run": "npm run prepare:cf:web:staging && npm --prefix deploy/cloudflare-web run deploy:dry-run",
-    "deploy:cf:web:staging": "npm run prepare:cf:web:staging && npm --prefix deploy/cloudflare-web run deploy:staging"
+    "deploy:cf:web:staging": "npm run prepare:cf:web:staging && npm --prefix deploy/cloudflare-web run deploy:staging",
+    "check:cf:api:staging": "npm --prefix deploy/cloudflare-api run check",
+    "deploy:cf:api:staging:dry-run": "npm --workspace @last-slice/contracts run build && npm --prefix deploy/cloudflare-api run deploy:dry-run",
+    "test:cf:api:staging": "npm --prefix deploy/cloudflare-api run build && npm --prefix deploy/cloudflare-api test",
+    "deploy:cf:api:staging": "python3 scripts/deploy-cloudflare-api.py"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.11",

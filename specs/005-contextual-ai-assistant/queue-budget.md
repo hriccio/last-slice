@@ -93,3 +93,8 @@ Announce queued/running/completed/cancelled/expired/error changes politely, pres
 - Input construction/trimming never drops the system rules or trusts client prices, and rejects essential prompts over the input bound before making a provider call.
 - React and Flutter cover both locales, queue estimates versus recent averages, cold start, outages, reset times, focus retention, foreground polling, stale quote context, and continuing the ordering flow while waiting.
 - Application logs/durable accounting contain no messages, responses, bearer secrets, or visitor identity. No live paid load test is needed to prove budget boundaries; use controlled usage and clocks.
+
+
+## Cloudflare staging execution amendment (2026-10-27)
+
+Cloudflare staging follows [Spec 008 execution design](../008-free-cloudflare-staging/worker-design.md): one assistant coordinator retains volatile jobs/results, and hosted alarms drive dispatch at approximately five-second wake-ups instead of a local one-second timer. Polling still never dispatches provider work; global FIFO, presence/cancellation, 45-second minimum pacing, durable accounting, and no automatic paid retry remain mandatory. Due dispatch estimates are approximate and may include the next alarm wake-up.

@@ -1,0 +1,25 @@
+{
+  "name": "last-slice-cloudflare-api-staging",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "cf build --mode staging",
+    "types": "cf workers types",
+    "check": "cf workers types && tsc --noEmit",
+    "deploy:dry-run": "cf deploy --mode staging --dry-run",
+    "deploy:staging": "cf deploy --mode staging --prebuilt",
+    "test": "node --import tsx --test tests/*.test.ts"
+  },
+  "devDependencies": {
+    "@cloudflare/config": "0.28.0",
+    "@cloudflare/vite-plugin": "2.0.0-beta.v.4",
+    "cf": "0.15.0",
+    "vite": "7.3.7",
+    "miniflare": "5.20261019.2-beta",
+    "typescript": "5.7.3",
+    "tsx": "4.19.2"
+  },
+  "overrides": {
+    "workerd": "1.20261027.1"
+  }
+}

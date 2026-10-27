@@ -65,8 +65,9 @@ export class MemoryLedger implements Ledger {
 }
 interface Pending {owner:string;messages?:ProviderMessage[];result?:ProviderResult;created:number;done?:number;next:number;leaseUntil:number}
 export class AssistantQueue {
- readonly process=randomUUID();private jobs=new Map<string,Pending>();private ticking=false;private timer:ReturnType<typeof setInterval>;
- constructor(private ledger:Ledger,private provider:(m:ProviderMessage[])=>Promise<ProviderResult>=callAssistant){
+ readonly process=randomUUID();private jobs=new Map<string,Pending>();private ticking=false;private timer?:ReturnType<typeof setInterval>;
+ constructor(private ledger:Ledger,private provider:(m:ProviderMessage[])=>Promise<ProviderResult>=callAssistant,options:{timers?:boolean}={}){
+  if(options.timers===false)return;
   this.timer=setInterval(()=>void this.tick().catch(()=>{}),1000);this.timer.unref();
  }
  close(){clearInterval(this.timer);this.jobs.clear();}

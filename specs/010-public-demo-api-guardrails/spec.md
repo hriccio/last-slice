@@ -44,3 +44,8 @@ Reduce casual cross-site abuse and automated submission volume against the publi
 ## Validation
 
 Run the API and web builds, API tests, Flutter analysis/build, and focused browser checks for both locales and rejected/accepted challenge cases. Record deployment secrets only in the runtime secret store, never in repository files or frontend output. See the [staging validation record](validation.md).
+
+
+## Cloudflare staging execution amendment (2026-10-27)
+
+The Worker-runtime non-goal is superseded for Cloudflare-hosted staging by [Spec 008 execution design](../008-free-cloudflare-staging/worker-design.md). One coordinator applies all hosted counters across Worker isolates. Counters remain volatile and reset on owner replacement; durable order/assistant capacity, budget, and pacing do not reset. No authentication guarantee is added.

@@ -80,3 +80,8 @@ Use deterministic model responses to test API validation and cart operations wit
 ## Implementation evidence
 
 See the [validation record](validation.md) for automated checks, live staging requests, costs, deployment versions, and remaining human/device checks.
+
+
+## Cloudflare staging execution amendment (2026-10-27)
+
+For Cloudflare-hosted staging, the process-memory proposal store belongs to the single assistant coordinator in [Spec 008 execution design](../008-free-cloudflare-staging/worker-design.md). All presentation/confirmation/discard calls route to that owner; eviction loses proposals safely, and no proposal content is persisted.

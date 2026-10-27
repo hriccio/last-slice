@@ -155,3 +155,8 @@ The API uses a provider adapter selected through server configuration. Provider 
 - Provider choice and deployment are runtime implementation decisions behind the specified adapter; the client and API response contract remain provider-neutral.
 - The vault-backed GPT-5 nano model is accepted. Initial public capacity is US$1/day, WCS US$0.00052 per attempt, a bounded FIFO queue, and one global dispatch slot every 45 seconds; changing model, prices, or token limits requires recalculating that policy.
 - This feature targets existing web/PWA/Android clients and does not depend on iOS or Apple tooling. Model acceptance does not mark the revised feature implementation complete.
+
+
+## Cloudflare staging execution amendment (2026-10-27)
+
+Hosted staging uses the single assistant coordinator defined in [Spec 008 execution design](../008-free-cloudflare-staging/worker-design.md) instead of a local Node process. It retains volatile content and routes every assistant operation to the same owner; eviction/deployment follows the existing restart failure semantics. Server credentials may be injected into Cloudflare secret bindings for this deployment, with no vault password uploaded.
