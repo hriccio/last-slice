@@ -34,6 +34,10 @@ export async function rpcFixture(t:any,db:PGlite){
     const filter=url.searchParams.get('public_demo')==='eq.true';
     result=(await db.query(`select order_data,status,created_at,updated_at from demo_orders where order_code=$1 ${filter?'and public_demo and expires_at>clock_timestamp()':''}`,[code])).rows;
    }else if(url.pathname==='/rest/v1/demo_menu'){result=(await db.query('select * from demo_menu where available')).rows;}
+   else if(url.pathname==='/rest/v1/demo_pizza_sales_daily'){
+    const cutoff=url.searchParams.get('sale_day')?.replace(/^gte\./,'')||'1970-01-01';
+    result=(await db.query('select sale_day,flavor_id,quantity from demo_pizza_sales_daily where sale_day >= $1',[cutoff])).rows;
+   }
    else throw new Error('Unexpected fixture route');
    res.setHeader('content-type','application/json');res.end(JSON.stringify(result));
   }catch{res.writeHead(500,{'content-type':'application/json'});res.end(JSON.stringify({code:'fixture_failure',message:'fixture failure'}));}

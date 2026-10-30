@@ -4,6 +4,7 @@ import {Buffer} from 'node:buffer';
 import {prepareAssistant,assertAssistantConfigured,callAssistant} from './assistant-provider.js';
 import {MemoryKitchen,nextOrderStatus} from './kitchen-simulation.js';
 import {AssistantQueue,SupabaseLedger,MemoryLedger,conversationCapability} from './assistant-queue.js';
+import {hasPizzaPreference,recommendWeeklyPizza} from './recommendations.js';
 import {createClient} from '@supabase/supabase-js';
 import {calculate,extras,flavors,isLocale,locales,sizes,crustSurcharge,deliveryFee,demoCheckoutFixtures,type OrderRequest,type OrderTrackingResponse,type Status} from '@last-slice/contracts';
 export interface ApiOptions {
@@ -32,7 +33,7 @@ const memoryOrders=new Map<string,any>(), idempotency=new Map<string,{payload:st
 const kitchenSimulation=new MemoryKitchen(memoryOrders);
 let simulationBusy=false;
 async function kitchenTick(){if(simulationBusy)return;simulationBusy=true;try{if(db){const {error}=await db.rpc('advance_demo_kitchen');if(error)throw error;}else kitchenSimulation.tick();}catch{}finally{simulationBusy=false;}}
-async function cleanup(){try{if(db)await db.rpc('cleanup_public_demo');else kitchenSimulation.cleanup();for(const [key,value]of idempotency)if(value.order.publicDemo&&value.order.expiresAt<=Date.now())idempotency.delete(key);}catch{}}
+async function cleanup(){try{if(db){await db.rpc('cleanup_public_demo');await db.rpc('cleanup_demo_pizza_sales');}else kitchenSimulation.cleanup();for(const [key,value]of idempotency)if(value.order.publicDemo&&value.order.expiresAt<=Date.now())idempotency.delete(key);}catch{}}
 if(publicDemo&&timers){const tick=setInterval(()=>void kitchenTick(),5000);tick.unref();const sweep=setInterval(()=>void cleanup(),60000);sweep.unref();void cleanup();}
 const corsHeaders={'access-control-allow-headers':'content-type,idempotency-key,authorization','access-control-allow-methods':'GET,POST,PATCH,DELETE,OPTIONS','vary':'Origin'};
 const send=(res:any,status:number,data:any)=>{res.writeHead(status,{'content-type':'application/json','cache-control':'no-store',...corsHeaders});res.end(JSON.stringify(data));};
@@ -51,8 +52,8 @@ async function boundedBody(req:any,maxBytes:number){let raw='';let bytes=0;for a
 function fakeAssistantReply(locale:string,question:string,context:any){
  const ingredients=context.menu.map((flavor:any)=>`${flavor.name}: ${flavor.ingredients.join(', ')}`).join('; ');
  const selected=context.selection?.flavorName;
- if(locale==='en-US')return `Development preview (no AI provider is connected). I can explain the listed menu and supported choices. ${selected?`You are customizing ${selected}. `:''}Menu ingredients: ${ingredients}. Use the ordering controls to change selections and review the API quote.`;
- return `Prévia de desenvolvimento (nenhum provedor de IA está conectado). Posso explicar o cardápio e as opções disponíveis. ${selected?`Você está montando ${selected}. `:''}Ingredientes do cardápio: ${ingredients}. Use os controles do pedido para alterar escolhas e conferir o orçamento da API.`;
+ if(locale==='en-US')return `Development preview (no AI provider is connected). I can explain the listed menu and supported choices. ${selected?`You are customizing ${selected}. `:''}${context.weeklyRecommendation?`A popular choice in this fictional demo this week is ${context.weeklyRecommendation.name}. `:''}Menu ingredients: ${ingredients}. Use the ordering controls to change selections and review the API quote.`;
+ return `Prévia de desenvolvimento (nenhum provedor de IA está conectado). Posso explicar o cardápio e as opções disponíveis. ${selected?`Você está montando ${selected}. `:''}${context.weeklyRecommendation?`Uma opção popular nesta demonstração fictícia nesta semana é ${context.weeklyRecommendation.name}. `:''}Ingredientes do cardápio: ${ingredients}. Use os controles do pedido para alterar escolhas e conferir o orçamento da API.`;
 }
 async function assistantMenu(locale:'pt-BR'|'en-US'){
  let rows:any[]=[];
@@ -61,8 +62,13 @@ async function assistantMenu(locale:'pt-BR'|'en-US'){
  return flavors.filter(flavor=>!db||availableIds.has(flavor.id)).map(flavor=>{
   const row=rows.find(item=>item.id===flavor.id);
   const ingredients=flavor.ingredients.filter(([id])=>!row||row.ingredients.includes(id)).map(item=>item[locale==='pt-BR'?1:2]);
-  return {name:row?.display_name??flavor.name,description:row?.descriptions?.[locale]??flavor.descriptions[locale],ingredients,sizes:sizes.map(size=>size.label[locale])};
+  return {id:flavor.id,name:row?.display_name??flavor.name,description:row?.descriptions?.[locale]??flavor.descriptions[locale],ingredients,sizes:sizes.map(size=>size.label[locale])};
  });
+}
+async function weeklySales(){
+ if(!publicDemo)return [];
+ if(db){const since=new Date(Date.now()-6*86400000).toISOString().slice(0,10);const {data,error}=await db.from('demo_pizza_sales_daily').select('flavor_id,quantity').gte('sale_day',since);if(error)throw new Error('assistant_unavailable');const totals=new Map<string,number>();for(const row of data||[])totals.set(row.flavor_id,(totals.get(row.flavor_id)||0)+Number(row.quantity));return [...totals].map(([flavorId,quantity])=>({flavorId,quantity}));}
+ return kitchenSimulation.weeklySales();
 }
 const proposals=new ProposalStore();
 async function proposalMenu(){
@@ -264,6 +270,8 @@ const handle=async(req:any,res:any)=>{
   }catch{fields['context.cartSnapshot']='validation.assistant_context';}}
   if(Object.keys(fields).length)return send(res,400,safeError('validation_error',400,fields).body);
   try{
+   const selectedName=typeof selection==='object'&&selection?flavors.find(f=>f.id===selection.flavorId)?.name:'';
+   if(hasPizzaPreference(`${input.message} ${selectedName||''}`)){const sales=await weeklySales();if(sales.length){const menu=await proposalMenu();const recommendation=recommendWeeklyPizza(sales,`${input.message} ${selectedName||''}`,assistantLocale,new Set(menu.availableIds));if(recommendation)context.weeklyRecommendation={flavorId:recommendation.flavorId,name:currentMenu.find((item:any)=>item.id===recommendation.flavorId)?.name??recommendation.name,reason:recommendation.reason,description:assistantLocale==='pt-BR'?'Entre as mais pedidas na demonstração fictícia nos últimos 7 dias.':'Among the most ordered in the fictional demo in the last 7 days.'};}}
    if(assistantProvider==='fake'&&env.NODE_ENV!=='production')return send(res,200,{reply:fakeAssistantReply(assistantLocale,input.message,context),mode:'development_fake',disclaimer:true});
    if(!['openai','openai-compatible','queued-fake'].includes(assistantProvider)||!assistantQueue)throw new Error('assistant_unavailable');
    if(!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(input.requestId||''))throw new Error('validation_error');

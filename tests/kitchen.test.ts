@@ -17,7 +17,7 @@ test('fresh database grants API menu/order access and denies direct public table
  await db.exec('reset role');
  for(const role of ['anon','authenticated']){
   await db.exec(`set role ${role}`);
-  for(const table of ['demo_menu','demo_orders']){
+  for(const table of ['demo_menu','demo_orders','demo_pizza_sales_daily']){
    await assert.rejects(db.query(`select * from ${table}`),/permission denied/);
    await assert.rejects(db.query(`truncate ${table} cascade`),/permission denied/);
   }
@@ -31,9 +31,10 @@ test('memory fake staff use bounded times, one transition per tick, terminal sto
  assert.equal(kitchen.tick(),0);now+=5000;kitchen.tick();assert.equal([...orders.values()][0].status,'preparing');
  now+=30000;kitchen.tick();assert.deepEqual([...orders.values()].map(o=>o.status),['ready_for_pickup','out_for_delivery']);
  now+=60000;kitchen.tick();assert.ok([...orders.values()].every(o=>o.status==='completed'));assert.equal(kitchen.events.length,16);kitchen.tick();assert.equal(kitchen.events.length,16);
+ assert.deepEqual(kitchen.weeklySales(),[{flavorId:'calabresa',quantity:4}]);
  for(const e of kitchen.events){assert.ok(staffMessage(e,'pt-BR').length>10);assert.ok(staffMessage(e,'en-US').length>10);assert.doesNotMatch(JSON.stringify(e),/phone|address|customer|payload/);}
  assert.equal(stageDelay('preparing',()=>0),30000);assert.equal(stageDelay('preparing',()=>1),90000);
- now+=86400000;kitchen.cleanup();assert.equal(orders.size,0);assert.equal(kitchen.events.length,0);
+ now+=86400000;kitchen.cleanup();assert.equal(orders.size,0);assert.equal(kitchen.events.length,0);assert.deepEqual(kitchen.weeklySales(),[{flavorId:'calabresa',quantity:4}]);
 });
 test('real PostgreSQL simulation persists timing, CAS transitions, events, source isolation and 24h cleanup',async t=>{
  const db=await sqlDatabase();t.after(()=>db.close());let now=Date.parse('2026-10-24T12:00:00Z');
@@ -53,10 +54,12 @@ test('real PostgreSQL simulation persists timing, CAS transitions, events, sourc
  now+=120000;await tick();assert.ok((await snapshot()).orders.every((o:any)=>o.status==='preparing'));assert.equal((await tick()).rows[0].value,0);
  now+=30000;await tick();assert.deepEqual(new Set((await snapshot()).orders.map((o:any)=>o.status)),new Set(['ready_for_pickup','out_for_delivery']));
  now+=60000;await tick();const done=await snapshot();assert.ok(done.orders.every((o:any)=>o.status==='completed'));assert.equal(done.messages.length,16);
+ assert.deepEqual((await db.query('select flavor_id,quantity from demo_pizza_sales_daily')).rows,[{flavor_id:'calabresa',quantity:4}]);
  assert.equal(new Set(done.messages.map((m:any)=>m.id)).size,16);assert.equal((await tick()).rows[0].value,0);
+ assert.deepEqual((await db.query('select flavor_id,quantity from demo_pizza_sales_daily')).rows,[{flavor_id:'calabresa',quantity:4}]);
  const stored=(await db.query<{status:string;order_data:any}>('select status,order_data from demo_orders where public_demo')).rows;assert.ok(stored.every(o=>o.status===o.order_data.status&&o.order_data.updatedAt));
  now+=86400000;assert.equal((await snapshot()).orders.length,0);assert.equal((await snapshot()).messages.length,0);
- await db.query('select cleanup_public_demo($1)',[new Date(now).toISOString()]);assert.equal((await db.query('select * from demo_orders where public_demo')).rows.length,0);assert.equal((await db.query('select * from demo_kitchen_events')).rows.length,0);
+ await db.query('select cleanup_public_demo($1)',[new Date(now).toISOString()]);assert.equal((await db.query('select * from demo_orders where public_demo')).rows.length,0);assert.equal((await db.query('select * from demo_kitchen_events')).rows.length,0);assert.deepEqual((await db.query('select flavor_id,quantity from demo_pizza_sales_daily')).rows,[{flavor_id:'calabresa',quantity:4}]);
  await db.exec('set role anon');await assert.rejects(db.query('select advance_demo_kitchen()'),/permission denied/);await db.exec('reset role');
 });
 test('public HTTP access rejects all mutations/PII, uses fictional fixtures, and remains bounded and idempotent',async t=>{
