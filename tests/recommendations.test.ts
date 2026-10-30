@@ -14,6 +14,13 @@ test('weekly recommendation chooses a popular nearest neighbor from the three le
 
 test('recommendation intent recognizes pizza preferences and avoids unrelated questions',()=>{
  assert.equal(hasPizzaPreference('I want Calabresa with onion'),true);
+ assert.equal(hasPizzaPreference('I like Calabresa'),true);
  assert.equal(hasPizzaPreference('qual pizza você recomenda?'),true);
+ assert.equal(hasPizzaPreference('What pizza do you recommend?'),true);
+ assert.equal(hasPizzaPreference('What is the most popular pizza?'),true);
  assert.equal(hasPizzaPreference('What is your pickup policy?'),false);
+ assert.equal(hasPizzaPreference('What do you have?'),false);
+ assert.equal(hasPizzaPreference('What is mozzarella?'),false);
+ assert.equal(hasPizzaPreference('What do you think of Calabresa?'),false);
+ assert.equal(hasPizzaPreference('O que tem na Portuguesa?'),false);
 });
