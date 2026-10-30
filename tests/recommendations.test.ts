@@ -6,6 +6,7 @@ test('weekly recommendation chooses a popular nearest neighbor from the three le
  const sales=[{flavorId:'mussarela',quantity:12},{flavorId:'calabresa',quantity:10},{flavorId:'portuguesa',quantity:8},{flavorId:'frango_catupiry',quantity:2}];
  assert.equal(recommendWeeklyPizza(sales,'quero calabresa', 'pt-BR')?.flavorId,'calabresa');
  assert.equal(recommendWeeklyPizza(sales,'', 'en-US')?.flavorId,'mussarela');
+ assert.equal(recommendWeeklyPizza(sales,'What pizza do you recommend?', 'en-US')?.flavorId,'mussarela');
  assert.equal(recommendWeeklyPizza(sales,'quero frango', 'pt-BR')?.flavorId,'mussarela');
  assert.equal(recommendWeeklyPizza(sales,'quero calabresa', 'pt-BR',new Set(['mussarela']))?.flavorId,'mussarela');
  assert.equal(recommendWeeklyPizza([], 'suggest something', 'en-US'),undefined);
