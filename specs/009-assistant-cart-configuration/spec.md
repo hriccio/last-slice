@@ -29,6 +29,7 @@ This remains a fictional ordering demo. Cart configuration does not place an ord
 
 1. A customer asks about ingredients or choices. The assistant answers from authoritative menu data, then may offer one relevant next step, such as configuring that pizza. It does not repeatedly pressure a customer who declines.
 2. The customer says, for example, “Quero uma Calabresa grande, sem cebola e com bacon.” The assistant resolves the flavor, size, removal, and extra from supported menu identifiers. Missing choices are clarified one useful question at a time. Existing selection context may supply a choice; any default must be visible in the review before application.
+   For Quatro Queijos, if the customer names exactly three of its four cheeses, the assistant proposes that pizza with the omitted cheese removed. If the customer only asks for three cheeses without naming which three, ask which cheese to remove; never claim this supported customization is impossible.
 3. The API validates the candidate against the current menu and obtains the canonical quote using the existing pricing operations. It returns a structured cart proposal alongside the conversational response. The model does not determine authoritative prices.
 4. Chat displays a review card showing the operation, flavor, size, crust, removed ingredients, extras, quantity, fulfillment context, and resulting API cart total. Updates show what changes; removal identifies the affected line. The card clearly states that the cart has not changed yet.
 5. The customer selects **Aplicar à sacola** / **Apply to cart**, **Ajustar** / **Adjust**, or **Descartar** / **Dismiss**. Only Apply changes the cart. Adjust continues the conversation; Dismiss leaves the cart unchanged. The assistant must distinguish a proposed configuration from an applied change in its wording.
@@ -66,6 +67,7 @@ For “sem cebola” or “remove that pizza,” use the selected line only when
 - [x] Reviewed add/update/quantity/remove proposals apply only after explicit confirmation and preserve unrelated cart state.
 - [x] Every shown/applicable option and resulting total is validated by the API; unsupported identifiers and client/model prices are rejected.
 - [x] Ambiguous targets cause clarification; stable line identity prevents editing the wrong configuration.
+- [x] Explicitly named three-cheese Quatro Queijos requests map to one removed ingredient and produce a review proposal; underspecified three-cheese requests ask which cheese to remove.
 - [x] Stale carts, changed prices/availability, expiry, process restart, and conversation ownership prevent unsafe application.
 - [x] Double confirmation, response replay, and retries never add a second pizza or repeat a removal; confirmation sends no paid request.
 - [x] The structured checkout remains required to create a fictional order; chat cannot submit or modify an existing order.
@@ -85,6 +87,8 @@ See the [validation record](validation.md) for automated checks, live staging re
 ### Proposal response consistency update
 
 The API now replaces model-written proposal claims with a localized summary derived from the validated cart proposal. If validation or proposal recovery fails, it returns a localized message that the cart is unchanged; clients no longer mislabel validation failures as expiry. The structured prompt also requires exact ingredient choices and prohibits claiming a proposal was prepared when its candidate does not match. Automated API regression coverage includes valid canonical replies and invalid-candidate recovery.
+
+For the supported Quatro Queijos three-cheese request, the API can derive the omitted ingredient when the customer names exactly three included cheeses and a size. The deterministic candidate uses the same normal proposal validation, review card, and explicit Apply action as model-generated candidates.
 
 
 ## Cloudflare staging execution amendment (2026-10-27)

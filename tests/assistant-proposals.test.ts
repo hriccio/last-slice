@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createServer} from 'node:http';
 import {setTimeout as pause} from 'node:timers/promises';
-import {ProposalStore,cartSnapshot} from '../apps/api/src/assistant-proposals.ts';
+import {ProposalStore,cartSnapshot,explicitThreeCheeseCandidate} from '../apps/api/src/assistant-proposals.ts';
 import {prepareAssistant,inputTokens} from '../apps/api/src/assistant-provider.ts';
 import {flavors,type CartLine,type CartSnapshot} from '../packages/contracts/src/index.ts';
 import {sqlDatabase,rpcFixture,startApi,listen} from './helpers.ts';
@@ -11,6 +11,13 @@ const line:CartLine={flavorId:'calabresa',sizeId:'grande',crustId:'traditional',
 const menu={signature:'menu-v1',availableIds:flavors.map(f=>f.id)};
 const snapshot=(lines:CartSnapshot['lines']=[]):CartSnapshot=>({revision:1,fulfillment:'pickup',lines});
 const cap='a'.repeat(64);
+test('an explicit three-cheese Quatro Queijos request resolves to the omitted ingredient',()=>{
+ const proposalMenu={flavors:[{id:'quatro_queijos',name:'Quatro Queijos',ingredients:[{id:'mozzarella',name:'Muçarela'},{id:'provolone',name:'Provolone'},{id:'parmesan',name:'Parmesão'},{id:'gorgonzola',name:'Gorgonzola'}]}]};
+ assert.deepEqual(explicitThreeCheeseCandidate('Opção A, com provolone, parmesão e gorgonzola. Média. Qualquer borda.',proposalMenu),{operation:'add',targetLineId:null,line:{flavorId:'quatro_queijos',sizeId:'media',crustId:'traditional',removedIngredientIds:['mozzarella'],extraToppingIds:[],quantity:1}});
+ assert.deepEqual(explicitThreeCheeseCandidate('Option A with provolone, parmesan, and gorgonzola. Medium. Any crust.',{flavors:[{id:'quatro_queijos',name:'Four Cheese',ingredients:[{id:'mozzarella',name:'Mozzarella'},{id:'provolone',name:'Provolone'},{id:'parmesan',name:'Parmesan'},{id:'gorgonzola',name:'Gorgonzola'}]}]}),{operation:'add',targetLineId:null,line:{flavorId:'quatro_queijos',sizeId:'media',crustId:'traditional',removedIngredientIds:['mozzarella'],extraToppingIds:[],quantity:1}});
+ assert.equal(explicitThreeCheeseCandidate('Quero uma pizza de três queijos, média.',proposalMenu),undefined);
+ assert.equal(explicitThreeCheeseCandidate('Provolone, parmesão e gorgonzola.',proposalMenu),undefined);
+});
 for(const locale of ['pt-BR','en-US'] as const){
  test(`proposals validate add, update, quantity, removal, merges, replay and ownership (${locale})`,async()=>{
   const store=new ProposalStore();const id=randomUUID(),base=snapshot([{...line,lineId:'first',quantity:2}]);
@@ -85,4 +92,17 @@ test('invalid structured proposal replaces the model promise with localized reco
  let ticket:any;for(let i=0;i<40;i++){await pause(100);ticket=await(await fetch(origin+'/assistant/requests/'+id,{headers})).json();if(ticket.state==='completed')break;}
  assert.equal(ticket.state,'completed');assert.equal(ticket.proposalError,'proposal_invalid');assert.equal(ticket.proposal,undefined);
  assert.match(ticket.reply,/Não consegui validar essa configuração/);assert.match(ticket.reply,/sacola continua igual/);assert.doesNotMatch(ticket.reply,/adicionada|preparei sua pizza/i);
+});
+test('explicit three-cheese follow-up creates a proposal even when the model omits the candidate',async t=>{
+ const db=await sqlDatabase();t.after(()=>db.close());const url=await rpcFixture(t,db);let calls=0;
+ const provider=createServer(async(_req,res)=>{calls++;res.setHeader('content-type','application/json');res.end(JSON.stringify({choices:[{message:{content:JSON.stringify({reply:'Não posso alterar os ingredientes da Quatro Queijos.',candidate:null})}}],usage:{prompt_tokens:1200,completion_tokens:100}}));});
+ const port=await listen(provider);t.after(()=>new Promise<void>(r=>provider.close(()=>r())));
+ const origin=await startApi(t,{SUPABASE_URL:url,SUPABASE_SERVICE_ROLE_KEY:'fixture',ASSISTANT_PROVIDER:'openai-compatible',ASSISTANT_API_URL:`http://127.0.0.1:${port}`,ASSISTANT_API_KEY:'fixture'});
+ const headers={'content-type':'application/json',authorization:`Bearer ${cap}`},id=randomUUID();
+ const request={requestId:id,locale:'pt-BR',message:'Opção A, com provolone, parmesão e gorgonzola. Média. Qualquer borda.',history:[],context:{screen:'cart',cartSnapshot:snapshot()}};
+ assert.equal((await fetch(origin+'/assistant/messages',{method:'POST',headers,body:JSON.stringify(request)})).status,202);
+ let ticket:any;for(let i=0;i<40;i++){await pause(100);ticket=await(await fetch(origin+'/assistant/requests/'+id,{headers})).json();if(ticket.state==='completed')break;}
+ assert.equal(ticket.state,'completed');assert.equal(ticket.proposalError,undefined);assert.equal(ticket.proposal.candidate.line.flavorId,'quatro_queijos');
+ assert.equal(ticket.proposal.candidate.line.sizeId,'media');assert.deepEqual(ticket.proposal.candidate.line.removedIngredientIds,['mozzarella']);
+ assert.match(ticket.reply,/Quatro Queijos · Média/);assert.match(ticket.reply,/A sacola não mudou/);assert.equal(calls,1);
 });

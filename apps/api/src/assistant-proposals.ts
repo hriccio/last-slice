@@ -2,6 +2,23 @@ import {createHash,randomUUID} from 'node:crypto';
 import {calculate,flavors,sizes,extras,type CartLine,type CartSnapshot,type CartProposal,type ProposalCandidate,type Locale} from '@last-slice/contracts';
 const invalid=()=>new Error('proposal_invalid');
 const hash=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
+const normalize=(value:string)=>value.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+const contains=(text:string,value:string)=>` ${text} `.includes(` ${normalize(value)} `);
+export function explicitThreeCheeseCandidate(message:string,proposalMenu:any):ProposalCandidate|undefined{
+ const text=normalize(message),sizeId=/\b(?:media|medium)\b/.test(text)?'media':/\b(?:broto|small)\b/.test(text)?'broto':/\b(?:grande|large)\b/.test(text)?'grande':undefined;
+ if(!sizeId||!Array.isArray(proposalMenu?.flavors))return;
+ const matches=proposalMenu.flavors.flatMap((flavor:any)=>{
+  if(!/(?:queijo|cheese)/.test(normalize(flavor.name||''))||!Array.isArray(flavor.ingredients)||flavor.ingredients.length!==4)return [];
+  const requested=flavor.ingredients.filter((ingredient:any)=>contains(text,ingredient.name||''));
+  return requested.length===3?[{flavor,requested}]:[];
+ });
+ if(matches.length!==1)return;
+ const {flavor,requested}=matches[0],requestedIds=new Set(requested.map((ingredient:any)=>ingredient.id));
+ const removedIngredientIds=flavor.ingredients.filter((ingredient:any)=>!requestedIds.has(ingredient.id)).map((ingredient:any)=>ingredient.id);
+ if(removedIngredientIds.length!==1)return;
+ const crustId=/\b(?:fina|thin)\b/.test(text)?'thin':/\b(?:recheada|stuffed)\b/.test(text)?'stuffed':'traditional';
+ return {operation:'add',targetLineId:null,line:{flavorId:flavor.id,sizeId,crustId,removedIngredientIds,extraToppingIds:[],quantity:1}};
+}
 export function cartLine(value:any):CartLine{
  const fields=['flavorId','sizeId','crustId','removedIngredientIds','extraToppingIds','quantity'];
  if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(k=>!fields.includes(k)))throw invalid();
@@ -21,22 +38,23 @@ export function cartSnapshot(value:any):CartSnapshot{
 const plain=(line:any)=>{const {lineId,...value}=line;return value as CartLine;};
 const identity=(line:CartLine)=>JSON.stringify({...line,quantity:1});
 export type ProposalMenu={signature:string;availableIds:string[]};
-interface Entry{owner:string;base:CartSnapshot;locale:Locale;expires:number;proposal?:CartProposal;menu?:string;discarded?:boolean}
+interface Entry{owner:string;base:CartSnapshot;locale:Locale;expires:number;fallback?:ProposalCandidate;proposal?:CartProposal;menu?:string;discarded?:boolean}
 export class ProposalStore{
  private entries=new Map<string,Entry>();
  constructor(private now:()=>number=Date.now){}
- register(requestId:string,cap:string,snapshot:CartSnapshot,locale:Locale){
+ register(requestId:string,cap:string,snapshot:CartSnapshot,locale:Locale,fallback?:ProposalCandidate){
   for(const [id,e]of this.entries)if(e.expires<=this.now())this.entries.delete(id);
   const old=this.entries.get(requestId);if(old){if(old.owner!==hash(cap))throw invalid();return;}
   if(this.entries.size>=5000)throw new Error('assistant_queue_full');
-  this.entries.set(requestId,{owner:hash(cap),base:structuredClone(snapshot),locale,expires:this.now()+600000});
+  this.entries.set(requestId,{owner:hash(cap),base:structuredClone(snapshot),locale,expires:this.now()+600000,...(fallback?{fallback:structuredClone(fallback)}:{})});
  }
  locale(requestId:string,cap:string):Locale|undefined{const e=this.entries.get(requestId);return e?.owner===hash(cap)?e.locale:undefined;}
+ hasFallback(requestId:string,cap:string){const e=this.entries.get(requestId);return e?.owner===hash(cap)&&!!e.fallback;}
  async present(requestId:string,cap:string,candidate:unknown,menu:ProposalMenu):Promise<CartProposal|undefined>{
   const e=this.entries.get(requestId);if(!e||e.owner!==hash(cap)||e.expires<=this.now()||e.discarded)return;
   if(e.proposal)return e.proposal;
-  if(!candidate)return;
-  const c=candidate as ProposalCandidate;
+  const resolved=e.fallback||candidate;if(!resolved)return;
+  const c=resolved as ProposalCandidate;
   if(Object.keys(c).some(k=>!['operation','targetLineId','line'].includes(k))||!['add','update','remove'].includes(c.operation))throw invalid();
   const lines=structuredClone(e.base.lines);
   if(c.operation!=='add'&&!lines.some(l=>l.lineId===c.targetLineId))throw invalid();

@@ -1,4 +1,4 @@
-import {ProposalStore,cartSnapshot,cartLine} from './assistant-proposals.js';
+import {ProposalStore,cartSnapshot,cartLine,explicitThreeCheeseCandidate} from './assistant-proposals.js';
 import {createHash,randomBytes,timingSafeEqual} from 'node:crypto';
 import {Buffer} from 'node:buffer';
 import {prepareAssistant,assertAssistantConfigured,callAssistant} from './assistant-provider.js';
@@ -79,7 +79,8 @@ async function proposalMenu(){
 async function presentAssistant(ticket:any,cap:string){
  const {candidate,...safe}=ticket;
  const locale=proposals.locale(ticket.requestId,cap)||'en-US';
- if(ticket.state==='completed'&&candidate){try{
+ const hasFallback=proposals.hasFallback(ticket.requestId,cap);
+ if(ticket.state==='completed'&&(candidate||hasFallback)){try{
   const proposal=await proposals.present(ticket.requestId,cap,candidate,await proposalMenu());
   if(!proposal)return {...safe,reply:proposalRecovery(locale,'proposal_expired'),proposalError:'proposal_expired'};
   const reply=proposal.operation==='remove'
@@ -293,7 +294,7 @@ const handle=async(req:any,res:any)=>{
    if(!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(input.requestId||''))throw new Error('validation_error');
    if(!queuedFake)assertAssistantConfigured(env);
    const cap=conversationCapability(req.headers.authorization);
-   if(snapshot)proposals.register(input.requestId,cap,snapshot,assistantLocale);
+   if(snapshot){const fallback=explicitThreeCheeseCandidate(input.message,context.proposalMenu);proposals.register(input.requestId,cap,snapshot,assistantLocale,fallback);}
    const messages=prepareAssistant(assistantLocale,input.history,input.message.trim(),context);
    const ticket=await assistantQueue.submit(input.requestId,cap,messages);
    return send(res,202,await presentAssistant(ticket,cap));

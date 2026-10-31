@@ -39,3 +39,10 @@ The new card has keyboard controls, localized labels, live-region status, and au
 - The structured prompt now requires the exact ingredient configuration requested and forbids saying a proposal is ready unless the candidate matches it. Regression coverage checks canonical proposal wording and invalid-candidate recovery without a live model call.
 - `npm run build`, `npm run test:api` (27 passing), `npm run test:cf:api:staging` (1 passing), Flutter PWA build, `flutter test` (24 passing), and Cloudflare API/PWA/React dry runs passed. All three public staging endpoints returned HTTP 200 after deployment. No live provider call was made.
 - Current staging versions: API `accc2205-54fe-47ab-9420-560c1e65d5b1`; Flutter PWA `bb2d7b48-cb02-4c62-9468-49b320d1cd6c`; React `d1847258-6722-4d93-879c-adb2850567d4`.
+
+## Explicit three-cheese follow-up repair (2026-10-31)
+
+- For an unambiguous Quatro Queijos request naming exactly three included cheeses and a size, the API now derives the omitted ingredient as a removal and stores that candidate with the conversation's proposal state. This deterministic candidate takes precedence over a missing or contradictory model candidate; the normal API proposal validation and customer Apply confirmation still apply. Requests that do not identify exactly three cheeses and a size continue through normal clarification.
+- Regression coverage reproduces “Opção A, com provolone, parmesão e gorgonzola. Média. Qualquer borda.” with a controlled model response that has no candidate, and verifies a medium Quatro Queijos proposal removing mozzarella.
+- `npm run build`, `npm run test:api` (29 passing), `npm run test:cf:api:staging` (1 passing), and the API Cloudflare dry run passed. The staging API returned HTTP 200 at `/config` after deployment. No live model request was made.
+- Current API Worker version: `9dff5ce9-fa8d-4e04-8928-67e934d61b34`; the existing Flutter PWA and React versions are unchanged.
