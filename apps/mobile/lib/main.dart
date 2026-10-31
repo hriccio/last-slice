@@ -2210,10 +2210,13 @@ String _assistantErrorText(OrderState state, String locale) {
   switch (state.assistantError) {
     case 'proposal_stale':
     case 'proposal_expired':
-    case 'proposal_invalid':
       return pt
           ? 'A sacola ou o cardápio mudou, ou a proposta expirou. Peça uma nova proposta.'
           : 'The cart or menu changed, or the proposal expired. Ask for a new proposal.';
+    case 'proposal_invalid':
+      return pt
+          ? 'Não consegui validar a configuração. A sacola continua igual; tente novamente ou use os controles do pedido.'
+          : 'I could not validate that configuration. Your cart is unchanged; try again or use the order controls.';
     case 'assistant_queue_full':
       return pt
           ? 'A fila está cheia. Tente novamente em instantes.'

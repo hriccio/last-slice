@@ -6,7 +6,7 @@ import {MemoryKitchen,nextOrderStatus} from './kitchen-simulation.js';
 import {AssistantQueue,SupabaseLedger,MemoryLedger,conversationCapability} from './assistant-queue.js';
 import {hasPizzaPreference,recommendWeeklyPizza} from './recommendations.js';
 import {createClient} from '@supabase/supabase-js';
-import {calculate,extras,flavors,isLocale,locales,sizes,crustSurcharge,deliveryFee,demoCheckoutFixtures,type OrderRequest,type OrderTrackingResponse,type Status} from '@last-slice/contracts';
+import {calculate,extras,flavors,isLocale,locales,sizes,crustSurcharge,deliveryFee,demoCheckoutFixtures,type Locale,type OrderRequest,type OrderTrackingResponse,type Status} from '@last-slice/contracts';
 export interface ApiOptions {
  env?: NodeJS.ProcessEnv;
  timers?: boolean;
@@ -78,8 +78,24 @@ async function proposalMenu(){
 }
 async function presentAssistant(ticket:any,cap:string){
  const {candidate,...safe}=ticket;
- if(ticket.state==='completed'&&candidate){try{const proposal=await proposals.present(ticket.requestId,cap,candidate,await proposalMenu());return {...safe,...(proposal?{proposal}:{})};}catch{return {...safe,proposalError:'proposal_invalid'};}}
+ const locale=proposals.locale(ticket.requestId,cap)||'en-US';
+ if(ticket.state==='completed'&&candidate){try{
+  const proposal=await proposals.present(ticket.requestId,cap,candidate,await proposalMenu());
+  if(!proposal)return {...safe,reply:proposalRecovery(locale,'proposal_expired'),proposalError:'proposal_expired'};
+  const reply=proposal.operation==='remove'
+   ?locale==='pt-BR'?`Preparei uma proposta para remover ${proposal.beforeSummary||proposal.summary}. A sacola não mudou; confira a proposta antes de aplicar.`:`I prepared a proposal to remove ${proposal.beforeSummary||proposal.summary}. Your cart has not changed; review it before applying.`
+   :locale==='pt-BR'?`Preparei esta proposta: ${proposal.summary}. A sacola não mudou; confira a proposta antes de aplicar.`:`I prepared this proposal: ${proposal.summary}. Your cart has not changed; review it before applying.`;
+  return {...safe,reply,proposal};
+ }catch{return {...safe,reply:proposalRecovery(locale,'proposal_invalid'),proposalError:'proposal_invalid'};}}
  return safe;
+}
+function proposalRecovery(locale:Locale,error:'proposal_invalid'|'proposal_expired'){
+ if(locale==='pt-BR')return error==='proposal_expired'
+  ?'Não consegui recuperar a proposta; a sacola continua igual. Envie a configuração novamente para gerar uma nova proposta.'
+  :'Não consegui validar essa configuração, então a sacola continua igual. Tente novamente ou ajuste a pizza pelos controles do pedido.';
+ return error==='proposal_expired'
+  ?'I could not recover that proposal; your cart is unchanged. Send the configuration again to create a new proposal.'
+  :'I could not validate that configuration, so your cart is unchanged. Try again or adjust the pizza in the order controls.';
 }
 function validPhone(phone:string){return /^\d{10,11}$/.test(phone.replace(/\D/g,''))}
 function statusKey(status:Status){return `status.${status}`}

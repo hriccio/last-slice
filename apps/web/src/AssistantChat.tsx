@@ -23,7 +23,7 @@ export function AssistantChat({locale,context,visible,onOpen,onClose,onApply,onR
  function fail(code:string,resetsAt?:string){const id=candidate.current?.id;setError(errorText(code,resetsAt));setMessage(candidate.current?.text||'');setTurns(old=>old.filter(x=>x.id!==id));setTicket(null);busyRef.current=false;setBusy(false);}
  function finish(body:AssistantTicket){
   if(body.state==='completed'){
-   setProposal(body.proposal||null);proposalDraft.current=body.proposal?.candidate||null;setApplied(false);proposalBase.current=JSON.stringify((candidate.current?.payload as any)?.context?.cartSnapshot);if(body.proposalError)setError(ptxt.stale);
+   setProposal(body.proposal||null);proposalDraft.current=body.proposal?.candidate||null;setApplied(false);proposalBase.current=JSON.stringify((candidate.current?.payload as any)?.context?.cartSnapshot);
    setTurns(old=>[...old,{role:'assistant' as const,content:String(body.reply)}].slice(-20));setFake(body.mode==='development_fake');setStale(candidate.current?.contextKey!==JSON.stringify(contextRef.current));candidate.current=null;setTicket(null);busyRef.current=false;setBusy(false);
   }else if(['expired','cancelled','failed'].includes(body.state))fail(body.error||'assistant_request_expired',body.resetsAt);
   else setTicket(body);

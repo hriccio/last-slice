@@ -428,7 +428,6 @@ class OrderState extends ChangeNotifier {
     assistantApplied = false;
     _proposalBase = jsonEncode((_assistantSubmission?['payload']
         as Json?)?['context']?['cartSnapshot']);
-    if (response['proposalError'] != null) assistantError = 'proposal_invalid';
     assistantTicket = null;
     assistantLoading = false;
     assistantDraft = '';

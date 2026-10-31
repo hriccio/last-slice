@@ -31,6 +31,7 @@ export class ProposalStore{
   if(this.entries.size>=5000)throw new Error('assistant_queue_full');
   this.entries.set(requestId,{owner:hash(cap),base:structuredClone(snapshot),locale,expires:this.now()+600000});
  }
+ locale(requestId:string,cap:string):Locale|undefined{const e=this.entries.get(requestId);return e?.owner===hash(cap)?e.locale:undefined;}
  async present(requestId:string,cap:string,candidate:unknown,menu:ProposalMenu):Promise<CartProposal|undefined>{
   const e=this.entries.get(requestId);if(!e||e.owner!==hash(cap)||e.expires<=this.now()||e.discarded)return;
   if(e.proposal)return e.proposal;

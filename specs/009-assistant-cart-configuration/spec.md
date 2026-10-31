@@ -58,6 +58,7 @@ For “sem cebola” or “remove that pizza,” use the selected line only when
 - Preserve the active order total and next action on narrow screens and at larger text sizes.
 - Closing chat preserves the cart; reopening may show an unexpired pending proposal. Clearing the conversation discards pending proposals and capabilities without undoing applied customer-confirmed cart changes.
 - On provider, validation, quote, confirmation, or network failure, retain the existing cart and show localized retry/recovery guidance. Never claim a change was applied if confirmation did not succeed.
+- The assistant's final reply must match the API-validated proposal. If proposal validation or presentation fails, replace any model claim that a proposal was prepared with a localized explanation that the cart is unchanged and how to recover. Do not label proposal validation errors as expiry.
 
 ## Acceptance criteria
 
@@ -80,6 +81,10 @@ Use deterministic model responses to test API validation and cart operations wit
 ## Implementation evidence
 
 See the [validation record](validation.md) for automated checks, live staging requests, costs, deployment versions, and remaining human/device checks.
+
+### Proposal response consistency update
+
+The API now replaces model-written proposal claims with a localized summary derived from the validated cart proposal. If validation or proposal recovery fails, it returns a localized message that the cart is unchanged; clients no longer mislabel validation failures as expiry. The structured prompt also requires exact ingredient choices and prohibits claiming a proposal was prepared when its candidate does not match. Automated API regression coverage includes valid canonical replies and invalid-candidate recovery.
 
 
 ## Cloudflare staging execution amendment (2026-10-27)

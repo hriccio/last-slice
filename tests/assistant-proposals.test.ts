@@ -64,7 +64,7 @@ test('queued structured provider proposal confirms without another paid call and
  const request={requestId:id,locale:'en-US',message:'A large Calabresa without onion with bacon',history:[],context:{screen:'menu',cartSnapshot:base}};
  let r=await fetch(origin+'/assistant/messages',{method:'POST',headers,body:JSON.stringify(request)});assert.equal(r.status,202);
  let ticket:any;for(let i=0;i<40;i++){await pause(100);ticket=await(await fetch(origin+'/assistant/requests/'+id,{headers})).json();if(ticket.state==='completed')break;}
- assert.equal(ticket.state,'completed');assert.equal(ticket.candidate,undefined);assert.ok(ticket.proposal);assert.equal(calls,1);
+ assert.equal(ticket.state,'completed');assert.equal(ticket.candidate,undefined);assert.ok(ticket.proposal);assert.match(ticket.reply,/I prepared this proposal: 1 × Calabresa · Large/);assert.match(ticket.reply,/cart has not changed/i);assert.equal(calls,1);
  const path=origin+'/assistant/proposals/'+ticket.proposal.id+'/confirm';
  const confirm=(cart=base,h=headers)=>fetch(path,{method:'POST',headers:h,body:JSON.stringify({cartSnapshot:cart})});
  r=await confirm();assert.equal(r.status,200);const result=await r.json();assert.deepEqual((await(await confirm()).json() as any),result);
@@ -72,4 +72,17 @@ test('queued structured provider proposal confirms without another paid call and
  assert.equal((await confirm(base,{...headers,authorization:`Bearer ${'b'.repeat(64)}`})).status,410);
  assert.equal((await db.query('select * from assistant_attempts')).rows.length,1);assert.equal(calls,1);
  assert.equal((await db.query('select * from demo_orders')).rows.length,0);
+});
+test('invalid structured proposal replaces the model promise with localized recovery guidance',async t=>{
+ const db=await sqlDatabase();t.after(()=>db.close());const url=await rpcFixture(t,db);
+ const provider=createServer(async(_req,res)=>{
+  res.setHeader('content-type','application/json');res.end(JSON.stringify({choices:[{message:{content:JSON.stringify({reply:'I prepared your pizza and added it to the cart.',candidate:{operation:'add',targetLineId:null,line:{...line,removedIngredientIds:['not-an-ingredient']}}})}}],usage:{prompt_tokens:1000,completion_tokens:100}}));
+ });const port=await listen(provider);t.after(()=>new Promise<void>(r=>provider.close(()=>r())));
+ const origin=await startApi(t,{SUPABASE_URL:url,SUPABASE_SERVICE_ROLE_KEY:'fixture',ASSISTANT_PROVIDER:'openai-compatible',ASSISTANT_API_URL:`http://127.0.0.1:${port}`,ASSISTANT_API_KEY:'fixture'});
+ const headers={'content-type':'application/json',authorization:`Bearer ${cap}`},id=randomUUID();
+ const request={requestId:id,locale:'pt-BR',message:'Crie essa pizza',history:[],context:{screen:'cart',cartSnapshot:snapshot()}};
+ assert.equal((await fetch(origin+'/assistant/messages',{method:'POST',headers,body:JSON.stringify(request)})).status,202);
+ let ticket:any;for(let i=0;i<40;i++){await pause(100);ticket=await(await fetch(origin+'/assistant/requests/'+id,{headers})).json();if(ticket.state==='completed')break;}
+ assert.equal(ticket.state,'completed');assert.equal(ticket.proposalError,'proposal_invalid');assert.equal(ticket.proposal,undefined);
+ assert.match(ticket.reply,/Não consegui validar essa configuração/);assert.match(ticket.reply,/sacola continua igual/);assert.doesNotMatch(ticket.reply,/adicionada|preparei sua pizza/i);
 });
