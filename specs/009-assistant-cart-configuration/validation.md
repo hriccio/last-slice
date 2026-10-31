@@ -32,3 +32,10 @@ The existing Supabase-backed staging API on local port 3002 was restarted with t
 ## Remaining human checks and operating limits
 
 The new card has keyboard controls, localized labels, live-region status, and automated narrow/larger-text coverage. A human screen-reader audio review of this new card has not been performed; the earlier human check for Spec 005 predates these controls. Native Android was built but not reinstalled on a device in this task. Staging still depends on the local API and Quick Tunnel processes. Existing production hosting/provider-retention gates remain separate.
+
+## Proposal-response consistency repair (2026-10-31)
+
+- The API now builds proposal-ready chat replies from the canonical, API-validated proposal summary. Invalid candidates and lost/expired proposal state replace the model's claim with a localized cart-unchanged recovery message. Flutter and React no longer add a duplicate stale/expiry warning below that reply.
+- The structured prompt now requires the exact ingredient configuration requested and forbids saying a proposal is ready unless the candidate matches it. Regression coverage checks canonical proposal wording and invalid-candidate recovery without a live model call.
+- `npm run build`, `npm run test:api` (27 passing), `npm run test:cf:api:staging` (1 passing), Flutter PWA build, `flutter test` (24 passing), and Cloudflare API/PWA/React dry runs passed. All three public staging endpoints returned HTTP 200 after deployment. No live provider call was made.
+- Current staging versions: API `accc2205-54fe-47ab-9420-560c1e65d5b1`; Flutter PWA `bb2d7b48-cb02-4c62-9468-49b320d1cd6c`; React `d1847258-6722-4d93-879c-adb2850567d4`.
